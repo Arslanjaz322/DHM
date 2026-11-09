@@ -1,6 +1,6 @@
 // Tool boxes: saved tool data (/api/tool-data), uploaded ZIP projects (/api/tool-zip)
 // and serving those ZIP files to visitors at /_tool/<id>.<version>/<file>.
-import { getSession, logAct } from "./auth.server";
+import { getSession, logAct, ownerSession } from "./auth.server";
 import { d1 } from "./d1.server";
 import {
   db,
@@ -47,8 +47,9 @@ export async function toolDataGET(request: Request): Promise<Response> {
 }
 
 export async function toolDataPOST(request: Request): Promise<Response> {
-  const s = await getSession(request);
-  if (!s) return fail(401, "Not signed in.");
+  // Saving tool rates/fees needs the owner's username + password login (X-Owner-Token).
+  const s = await ownerSession(request);
+  if (!s) return fail(401, "Sign in as the owner to save.");
   // D1 stores at most about 2 MB per row (measured in bytes)
   const raw = await readTextLimited(request, 1_900_000);
   if (raw === null) return fail(413, "Tool data is larger than 1.9 MB.");

@@ -636,8 +636,9 @@ const PERF_DEF={lazyImg:true,heroPreload:true,heroVidMobile:false,vidPreload:'me
 const P=()=>Object.assign({},PERF_DEF,S.perf||{});
 /* project categories shown in the Projects menu (id stays fixed; name and address can be edited) */
 const PROJ_CATS_DEF=()=>[{id:'developed',name:'Developed Projects',slug:'developed-projects'},{id:'under-development',name:'Under-Development Projects',slug:'under-development-projects'},{id:'upcoming',name:'Upcoming Projects',slug:'upcoming-projects'}];
+let TOOLTOK=null;try{TOOLTOK=sessionStorage.getItem('maskan_otok')||null}catch(e){}
 const S={
-  view:/^\/admin\/?$/.test(location.pathname)?'admin':'site',route:'home',sub:'',get admin(){return /^\/admin\/?$/.test(location.pathname)||this.view==='admin'||this.sub==='admin'},set admin(v){},sec:'custom',inline:false,
+  view:/^\/admin\/?$/.test(location.pathname)?'admin':'site',route:'home',sub:'',get admin(){return /^\/admin\/?$/.test(location.pathname)||this.view==='admin'||(this.sub==='admin'&&!!TOOLTOK)},set admin(v){},sec:'custom',inline:false,
   title:'Maskan Estates',logo:'M',logoImg:'/logo.png',accent:0,accentCustom:'',siteBg:'#f6faf7',surface:'#ffffff',
   cred:'',fails:0,lock:0,
   nav:[
@@ -2035,7 +2036,10 @@ function secAcct(){
   <div class="err" id="aerr" role="alert"></div>
   <div class="zrow"><button class="btn pri" data-act="setcred">Save new login</button><button class="btn" data-act="out">Sign out</button></div>`;
 }
-function loginHTML(){return ''}
+function loginHTML(){return `<form class="login" id="login" data-lform="1"><h2>Admin sign in</h2><p class="sub">Only the site owner can open this admin panel. Enter the owner username and password.</p>
+   <div class="f"><label for="lu">Username</label><input id="lu" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+   <div class="f"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password"></div>
+   <div class="err" id="lerr" role="alert"></div><button class="btn pri" type="submit">Sign in</button></form>`}
 function adminHTML(){
   if(!S.admin)return loginHTML();
   const m={custom:secCustom,slider:secSlider,tools:secTools,boxadm:secBoxAdm,optim:secOpt,docs:secDocs,arts:secArts,pcats:secPCats,projs:secProjs,vids:secVids,gal:secGal,pages:secPages,seo:secSeo,bcast:secBcast,acct:secAcct,check:secCheck,backups:secBackups,media:secMedia,log:secLog,team:secTeam}[(!isOwner()&&OWNER_ONLY.includes(S.sec))||!SECS.some(x=>x[0]===S.sec)?'custom':S.sec];
@@ -2900,26 +2904,29 @@ document.addEventListener('drop',e=>{if(e.target.closest&&e.target.closest('[dat
 document.addEventListener('beforeinput',e=>{if(e.target.closest&&e.target.closest('[data-zone]')&&e.inputType!=='insertFromPaste')e.preventDefault()});
 /* ---------- username + password sign-in ---------- */
 document.addEventListener('submit',e=>{if(e.target&&e.target.dataset&&e.target.dataset.lform){e.preventDefault();doLogin()}});
+async function ownerLogin(u,p){
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',user:u,pass:p})});let j={};try{j=await r.json()}catch(e){}
+    if(r.ok&&j.token){TOOLTOK=j.token;try{sessionStorage.setItem('maskan_otok',j.token)}catch(e){}return {ok:true}}
+    return {ok:false,msg:r.status===429?'Too many attempts. Try again in '+Math.ceil((j.wait||900000)/60000)+' minutes.':(r.status===503&&j.error?j.error:'Wrong username or password.')}
+  }catch(e){return {ok:false,msg:'Could not reach the server. Check your connection.'}}
+}
 async function doLogin(){
   const err=document.getElementById('lerr'),u=($('#lu').value||'').trim(),p=$('#lp').value||'';
   if(!u||!p){if(err)err.textContent='Enter your username and password.';return}
   if(err)err.textContent='Signing in\u2026';
-  try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',user:u,pass:p})});
-    let j={};try{j=await r.json()}catch(e){}
-    if(r.ok&&j.token){setAuth(j.token);S.admin=true;S.user=j.user||'';S.role=j.role||'owner';render();toast('Signed in.');if(!REMOTE_AT)autoSync(true);else if(snap()!==SAVED)autoSync();return}
-    const m=r.status===429?'Too many attempts. Try again in '+Math.ceil((j.wait||900000)/60000)+' minutes.':'Wrong username or password.';
-    const e2=document.getElementById('lerr');if(e2)e2.textContent=m;
-  }catch(e){const e2=document.getElementById('lerr');if(e2)e2.textContent='Could not reach the server. Check your connection.'}
+  const r=await ownerLogin(u,p);
+  if(r.ok){render();toast('Signed in.');return}
+  const e2=document.getElementById('lerr');if(e2)e2.textContent=r.msg;
 }
 /* the tool boxes' own admin tabs: they are open whenever the owner is already signed in */
 async function siteLogin(u,p){
-  return true;
-  u=String(u||'').trim();p=String(p||'');if(!u||!p)return false;
-  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',user:u,pass:p})});let j={};try{j=await r.json()}catch(_){}
-    if(r.ok&&j.token){setAuth(j.token);S.admin=true;S.user=j.user||'';S.role=j.role||'owner';const pv=document.getElementById('pvbar');if(pv)pv.hidden=false;toast('Signed in.');return true}
-    if(r.status===429)toast('Too many attempts. Try again in '+Math.ceil((j.wait||900000)/60000)+' minutes.');
-  }catch(_){toast('Could not reach the server. Check your connection.')}
+  u=String(u||'').trim();p=String(p||'');
+  /* no credentials: tell the tool whether the owner is already signed in AND this is an admin address; public visitors always get the tool itself */
+  if(!u&&!p)return !!TOOLTOK&&(S.sub==='admin'||S.view==='admin');
+  if(!u||!p)return false;
+  const r=await ownerLogin(u,p);
+  if(r.ok){toast('Signed in.');return true}
+  if(r.msg&&r.msg!=='Wrong username or password.')toast(r.msg);
   return false}
 async function logoUpload(f){
   if(!/^image\/(png|jpeg|webp)$/.test(f.type)){toast('Choose a PNG, JPG or WebP picture.');return}
@@ -2989,8 +2996,8 @@ window.addEventListener('message',e=>{
   if(d.type==='store-get'||d.type==='store-set'){
     const tool=pathOf(f.id==='bpf'?'t:'+f.dataset.i:S.route).split('/')[2]||'',reply=o=>f.contentWindow&&f.contentWindow.postMessage({type:'store-res',id:d.id,...o},'*');
     if(d.type==='store-get'){fetch('/api/tool-data?tool='+encodeURIComponent(tool)+'&'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>reply({ok:!!j,data:j&&j.data})).catch(()=>reply({ok:false}));return}
-    if(!S.admin||!AUTH||(S.sub!=='admin'&&!f.dataset.adm)){reply({ok:false});return}
-    fetch('/api/tool-data',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':AUTH},body:JSON.stringify({tool,data:d.data})}).then(r=>reply({ok:r.ok})).catch(()=>reply({ok:false}));
+    if(!TOOLTOK||(S.sub!=='admin'&&!f.dataset.adm)){reply({ok:false});return}
+    fetch('/api/tool-data',{method:'POST',headers:{'Content-Type':'application/json','X-Owner-Token':TOOLTOK},body:JSON.stringify({tool,data:d.data})}).then(r=>{if(r.status===401){TOOLTOK=null;try{sessionStorage.removeItem('maskan_otok')}catch(e){}}reply({ok:r.ok})}).catch(()=>reply({ok:false}));
   }
 });
 if(BOOT&&BOOT.data){applyData(BOOT.data);REMOTE_AT=LASTSAVE=BOOT.savedAt||0;SAVED=snap()}

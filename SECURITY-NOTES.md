@@ -1,3 +1,10 @@
+# Tool boxes: owner login
+
+The main `/admin` panel is open (no login). The HTML tool boxes' own admin tabs (`/tools/<tool>/admin`, and the Admin tab inside a box)
+need the owner's username and password. Set them in Cloudflare: Workers & Pages > your project > Settings > Variables and Secrets,
+add **ADMIN_USERNAME** and **ADMIN_PASSWORD** (type: Secret) and redeploy. Saving tool rates (`/api/tool-data` POST) needs the
+signed `X-Owner-Token` issued by that login (valid 12 hours, 8 wrong tries per 15 minutes per IP). Public visitors always see the tool itself.
+
 # !! Admin sign-in REMOVED (open admin panel)
 
 As requested, there is no login of any kind any more: no email, username, password, Cloudflare Access button or token check.
