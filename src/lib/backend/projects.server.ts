@@ -40,9 +40,8 @@ export function projectCover(p: Json): string {
 
 /** A category card picture: its own cover, else the cover of its first published sub-project. */
 export function categoryCover(d: Json, c: ProjectCategory): string {
-  if (c.img) return c.img;
-  const first = publishedProjects(d).find((p: Json) => p.cat === c.id);
-  return first ? projectCover(first) : "";
+  void d; // a category card has its own cover; it no longer copies a sub-project cover
+  return c.img || "";
 }
 
 export function projectPath(d: Json, p: Json): string {

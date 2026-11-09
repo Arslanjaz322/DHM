@@ -695,9 +695,9 @@ function applyData(d){KEYS.forEach(k=>{if(d&&d[k]!==undefined)S[k]=d[k]});S.perf
   if(!Array.isArray(S.gal))S.gal=[];
   /* projects: fill missing fields so the Projects screens never break */
   if(!Array.isArray(S.projCats))S.projCats=PROJ_CATS_DEF();
-  S.projCats=S.projCats.filter(c=>c&&typeof c==='object');S.projCats.forEach((c,j)=>{c.name=String(c.name==null?'Category':c.name);c.slug=slug(String(c.slug||c.name||'')).replace(/-+$/,'')||('category-'+(j+1));c.id=String(c.id||c.slug);['img','sum'].forEach(k=>{c[k]=typeof c[k]==='string'?c[k]:''})});
+  S.projCats=S.projCats.filter(c=>c&&typeof c==='object');S.projCats.forEach((c,j)=>{c.name=String(c.name==null?'Category':c.name);c.slug=slug(String(c.slug||c.name||'')).replace(/-+$/,'')||('category-'+(j+1));c.id=String(c.id||c.slug);['img','sum','logo'].forEach(k=>{c[k]=typeof c[k]==='string'?c[k]:''})});
   if(!Array.isArray(S.projs))S.projs=[];
-  S.projs=S.projs.filter(x=>x&&typeof x==='object');S.projs.forEach(x=>{['title','slug','cat','sum','facts','body'].forEach(k=>{if(x[k]==null)x[k]='';else if(typeof x[k]!=='string')x[k]=String(x[k])});x.imgs=Array.isArray(x.imgs)?x.imgs.filter(u=>typeof u==='string'&&u):[];['cover','loc'].forEach(k=>{x[k]=typeof x[k]==='string'?x[k]:''})});
+  S.projs=S.projs.filter(x=>x&&typeof x==='object');S.projs.forEach(x=>{['title','slug','cat','sum','facts','body'].forEach(k=>{if(x[k]==null)x[k]='';else if(typeof x[k]!=='string')x[k]=String(x[k])});x.imgs=Array.isArray(x.imgs)?x.imgs.filter(u=>typeof u==='string'&&u):[];['cover','loc','logo'].forEach(k=>{x[k]=typeof x[k]==='string'?x[k]:''})});
   {const ids=new Set();S.projs.forEach((x,j)=>{const b=(typeof x.id==='string'&&x.id)?x.id:'p-'+(x.slug||('n'+j));let n=b,k=2;while(ids.has(n))n=b+'-'+(k++);x.id=n;ids.add(n)})}
   /* one-time: sites saved before Projects existed get a Projects menu link (removing it later sticks) */
   if(d&&!d.projNav){if(!S.nav.some(n=>n.route==='projects')){const k=S.nav.findIndex(n=>n.route==='news');S.nav.splice(k<0?Math.min(1,S.nav.length):k+1,0,{label:'Projects',route:'projects',dd:false})}S.projNav=true}
@@ -954,7 +954,7 @@ const projCover=x=>x?(x.cover||projPhotos(x)[0]||''):'';
 const projById=id=>(S.projs||[]).find(x=>x.id===id)||null;
 const curProj=()=>projById(S.ui.pjOpen);
 const newPjId=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const catCover=c=>c?(c.img||projCover(pubProjs().find(x=>x.cat===c.id))||''):'';
+const catCover=c=>c?(c.img||''):'';
 const projPath=x=>'/projects/'+((projCatOf(x.cat)||{}).slug||'other')+'/'+x.slug;
 const uniqProjSlug=(b,self)=>{b=(b||'project').slice(0,60).replace(/-+$/,'')||'project';let n=b,k=2;while((S.projs||[]).some(x=>x!==self&&x.slug===n))n=b+'-'+(k++);return n};
 const uniqCatSlug=(b,self)=>{b=(b||'category').slice(0,60).replace(/-+$/,'')||'category';let n=b,k=2;while((S.projCats||[]).some(x=>x!==self&&x.slug===n)||n==='other')n=b+'-'+(k++);return n};
@@ -1355,13 +1355,13 @@ function openLB(list,i){
   document.addEventListener('keydown',key);document.body.appendChild(d);show();
 }
 function projCardHTML(x,j){
-  const c=projCatOf(x.cat),u=projCover(x),lg=safeImg(S.logoImg)||'/logo.png',loc=String(x.loc||'').trim();
+  const c=projCatOf(x.cat),u=projCover(x),lg=safeImg(x.logo)||safeImg(S.logoImg)||'/logo.png',loc=String(x.loc||'').trim();
   const sm=loc?`<small class="pjloc">${esc(loc)}</small>`:(c?`<small>${esc(c.name)}</small>`:'');
   return `<a class="pjc" style="--d:${Math.min(+j||0,12)}" href="${esc(projPath(x))}" data-act="go" data-r="pj:${esc(x.slug)}"><span class="pjci">${u?`<img src="${esc(u)}" alt="${esc(x.title)}" ${P().lazyImg?'loading="lazy" decoding="async"':''}>`:`<span class="pjph">${esc(String(x.title||'P').slice(0,1))}</span>`}</span><span class="pjlg" aria-hidden="true">${lg?`<img src="${esc(lg)}" alt="">`:`<i>${esc(S.logo||String(S.title||'').slice(0,1))}</i>`}</span><b>${esc(x.title)}</b>${sm}</a>`;
 }
 /* Step 1: one card per project category */
 function projCatCardHTML(k,j){
-  const n=pubProjs().filter(x=>x.cat===k.id).length,u=catCover(k),lg=safeImg(S.logoImg)||'/logo.png',d=String(k.sum||'').trim();
+  const n=pubProjs().filter(x=>x.cat===k.id).length,u=catCover(k),lg=safeImg(k.logo)||safeImg(S.logoImg)||'/logo.png',d=String(k.sum||'').trim();
   return `<a class="pjc pcc" style="--d:${Math.min(+j||0,12)}" href="/projects/${esc(k.slug)}" data-act="go" data-r="pc:${esc(k.slug)}"><span class="pjci">${u?`<img src="${esc(u)}" alt="${esc(k.name)}" ${P().lazyImg?'loading="lazy" decoding="async"':''}>`:`<span class="pjph">${esc(String(k.name||'P').slice(0,1))}</span>`}</span><span class="pjlg" aria-hidden="true">${lg?`<img src="${esc(lg)}" alt="">`:`<i>${esc(S.logo||String(S.title||'').slice(0,1))}</i>`}</span><b>${esc(k.name)}</b><small>${n?n+' project'+(n===1?'':'s'):'Coming soon'}</small>${d?`<span class="pccs">${esc(d)}</span>`:''}<span class="pccta">View projects &rarr;</span></a>`;
 }
 /* /projects shows the category cards (Step 1); /projects/<category> shows that category's sub-project cards (Step 2) */
@@ -1795,13 +1795,13 @@ function secArts(){
 /* ---------- admin: Project categories (parents) ---------- */
 function secPCats(){
   const cats=S.projCats,L=S.projs,cnt=id=>L.filter(y=>y.cat===id).length;
-  return `<h2>Project categories</h2><p class="sub">Categories are the first thing visitors see on <b>/projects</b>. Each category opens a page listing its own sub-projects. Add a cover picture for the category card; without one, the cover of its first published sub-project is used. Sub-projects are managed in <b>Projects</b>.</p>
+  return `<h2>Project categories</h2><p class="sub">Categories are the first thing visitors see on <b>/projects</b>. Each category opens a page listing its own sub-projects. Upload a cover picture for the category card: it is separate from the sub-project covers. Sub-projects are managed in <b>Projects</b>.</p>
   <div class="row" style="border:0;padding:0"><button class="btn pri" data-act="pcadd">Add category</button></div>
   <div style="display:flex;flex-direction:column;gap:14px">${cats.map((c,j)=>{
-    const auto=!c.img&&catCover(c),u=c.img||auto;
+    const auto='',u=c.img||'',lgs=safeImg(c.logo)||safeImg(S.logoImg)||'/logo.png';
     return `<div class="apn catrow"><div class="catl"><div class="apv">${u?`<img src="${esc(u)}" alt="">`:'No cover picture'}</div>
-     <span class="note">${c.img?'Category cover picture':auto?'Automatic: using the first sub-project cover':'Upload a cover picture for the card'}</span>
-     <div class="pjact"><label class="btn sm pri up">${c.img?'Replace cover':'Upload cover'}<input type="file" accept="image/*" data-pccov="${j}"></label>${c.img?`<button class="btn sm warn" data-act="pccovdel" data-i="${j}">Remove cover</button>`:''}</div><p class="note" id="pccst-${j}" role="status"></p></div>
+     <span class="note">${c.img?'Category cover picture':'Upload a cover picture for the card'}</span>
+     <div class="pjact"><label class="btn sm pri up">${c.img?'Replace cover':'Upload cover'}<input type="file" accept="image/*" data-pccov="${j}"></label>${c.img?`<button class="btn sm warn" data-act="pccovdel" data-i="${j}">Remove cover</button>`:''}</div><p class="note" id="pccst-${j}" role="status"></p><span class="note" style="display:block;margin-top:12px">Round logo on this card (leave empty to use the site logo)</span><div class="pjact" style="align-items:center"><img src="${esc(lgs)}" alt="" width="40" height="40" style="border-radius:50%;object-fit:cover;background:#fff;border:1px solid var(--line)"><label class="btn sm up">${c.logo?'Replace card logo':'Upload card logo'}<input type="file" accept="image/*" data-pclogo="${j}"></label>${c.logo?`<button class="btn sm warn" data-act="pclogodel" data-i="${j}">Use site logo</button>`:''}</div><p class="note" id="pclst-${j}" role="status"></p></div>
      <div class="catr"><div class="g2"><div class="f"><label for="pcn${j}">Category name</label><input id="pcn${j}" type="text" data-b="projCats.${j}.name" data-pcname="${j}" value="${esc(c.name)}"></div>
      <div class="f"><label for="pcs${j}">Page address (/projects/…)</label><input id="pcs${j}" type="text" data-b="projCats.${j}.slug" data-slug="1" data-pcslug="${j}" value="${esc(c.slug)}"></div></div>
      <div class="f"><label for="pcd${j}">Short description (optional, shown on the category card and page)</label><textarea id="pcd${j}" data-b="projCats.${j}.sum" maxlength="200" style="min-height:56px;font-family:var(--font-body);font-size:14px">${esc(c.sum)}</textarea></div>
@@ -1836,6 +1836,8 @@ function secProjEdit(x){
   <div class="apn"><h3>Cover image <span class="badge" style="margin:0">CARD PICTURE</span></h3><p class="note">Shown on the sub-project card. It is separate from the gallery${x.cover?'.':'. No cover is set, so the first gallery picture is used.'}</p>
    <div class="apv">${projCover(x)?`<img src="${esc(projCover(x))}" alt="">`:'No cover picture'}</div>
    <div class="pjact"><label class="btn sm pri up">${x.cover?'Replace cover':'Upload cover'}<input type="file" accept="image/*" data-pjcov="1"></label>${x.cover?`<button class="btn sm warn" data-act="pjcovdel" data-i="${i}">Remove cover</button>`:''}</div><p class="note" id="pjcst" role="status"></p></div>
+  <div class="apn"><h3>Card logo <span class="badge" style="margin:0">ROUND BADGE</span></h3><p class="note">The round logo shown on this project's card. Leave it empty to use the site logo.</p>
+   <div class="pjact" style="align-items:center"><img src="${esc(safeImg(x.logo)||safeImg(S.logoImg)||'/logo.png')}" alt="" width="56" height="56" style="border-radius:50%;object-fit:cover;background:#fff;border:1px solid var(--line)"><label class="btn sm pri up">${x.logo?'Replace card logo':'Upload card logo'}<input type="file" accept="image/*" data-pjlogo="1"></label>${x.logo?`<button class="btn sm warn" data-act="pjlogodel" data-i="${i}">Use site logo</button>`:''}</div><p class="note" id="pjlst" role="status"></p></div>
   <div class="apn"><h3>Gallery images <span class="badge" style="margin:0">${n} / ${PJ_MAX}</span></h3>
    <p class="note">These ${PJ_MIN} to ${PJ_MAX} pictures appear on the project page in a 3-column gallery; visitors click one to see it large. Drag a picture to reorder it, or use the arrows. ${gal}</p>
    ${n?`<div class="pgrid pjg2">${ph.map((u,j)=>`<figure class="pth" draggable="true" data-pjdrag="${j}"><img src="${esc(u)}" alt="Gallery picture ${j+1}"><figcaption><span class="pjn">#${j+1}</span><span class="pjact"><button class="btn sm" data-act="pjimgl" data-i="${i}" data-j="${j}" aria-label="Move left">&larr;</button><button class="btn sm" data-act="pjimgr" data-i="${i}" data-j="${j}" aria-label="Move right">&rarr;</button><label class="btn sm up" title="Replace this picture">Replace<input type="file" accept="image/*" data-pjrep="${j}"></label><button class="btn sm" data-act="pjimgascover" data-i="${i}" data-j="${j}" title="Use this picture as the card cover">Cover</button><button class="btn sm warn" data-act="pjimgdel" data-i="${i}" data-j="${j}" aria-label="Remove picture">&times;</button></span></figcaption></figure>`).join('')}</div>`:'<span class="note">No gallery pictures yet.</span>'}
@@ -1935,6 +1937,18 @@ async function replaceProjPic(k,f){
   if(!/^image\//.test(f.type)){toast('Choose a picture (JPG, PNG or WebP).');return}
   try{pstat('pjst','Replacing picture '+(k+1)+'\u2026');const u=await projUpload(f),ph=projPhotos(x);if(k<0||k>=ph.length)return;ph[k]=u;x.imgs=ph;render();toast('Picture '+(k+1)+' replaced.')}
   catch(e){if(e.message!=='auth')pstat('pjst',e.message||'Upload failed.',true);else pstat('pjst','')}
+}
+async function setProjLogo(f){
+  const x=curProj();if(!x)return;
+  if(!/^image\//.test(f.type)){toast('Choose a picture (JPG, PNG or WebP).');return}
+  try{pstat('pjlst','Uploading logo\u2026');x.logo=await projUpload(f);render();toast('Card logo saved.')}
+  catch(e){if(e.message!=='auth')pstat('pjlst',e.message||'Upload failed.',true);else pstat('pjlst','')}
+}
+async function setCatLogo(k,f){
+  const c=S.projCats[k];if(!c)return;
+  if(!/^image\//.test(f.type)){toast('Choose a picture (JPG, PNG or WebP).');return}
+  try{pstat('pclst-'+k,'Uploading logo\u2026');c.logo=await projUpload(f);render();toast('Card logo saved.')}
+  catch(e){if(e.message!=='auth')pstat('pclst-'+k,e.message||'Upload failed.',true);else pstat('pclst-'+k,'')}
 }
 async function setCatCover(k,f){
   const c=S.projCats[k];if(!c)return;
@@ -2694,6 +2708,8 @@ document.addEventListener('click',e=>{
     case 'pjup':case 'pjdn':{const x=S.projs[i];if(!x)break;const d=act==='pjup'?-1:1;let j=i+d;while(j>=0&&j<S.projs.length&&S.projs[j].cat!==x.cat)j+=d;if(j>=0&&j<S.projs.length){swap(S.projs,i,j);render()}break}
     case 'pjview':{const x=S.projs[i];if(!x)break;if(!x.slug){x.slug=uniqProjSlug(slug(x.title||'project'),x)}S.view='site';S.route='pj:'+x.slug;pushURL(urlFor(S.route));render();if(!x.pub)toast('This project is a draft. Tick Published so visitors can see it.');break}
     case 'pjcovdel':{const x=S.projs[i];if(x){x.cover='';render()}break}
+    case 'pjlogodel':{const x=S.projs[i];if(x){x.logo='';render()}break}
+    case 'pclogodel':{const c=S.projCats[i];if(c){c.logo='';render()}break}
     case 'pjimgdel':case 'pjimgcover':case 'pjimgl':case 'pjimgr':case 'pjimgascover':{const x=S.projs[i],j=+a.dataset.j;if(!x)break;const ph=projPhotos(x);if(j<0||j>=ph.length)break;
       if(act==='pjimgascover'){x.cover=ph[j];render();toast('Picture '+(j+1)+' is now the cover.');break}
       if(act==='pjimgdel')ph.splice(j,1);else if(act==='pjimgcover'){const [y]=ph.splice(j,1);ph.unshift(y)}else if(act==='pjimgl')swap(ph,j,j-1);else swap(ph,j,j+1);
@@ -2815,6 +2831,8 @@ document.addEventListener('change',e=>{
   if(t.dataset.srep!==undefined&&t.files&&t.files[0]){const f=t.files[0],k=+t.dataset.srep;t.value='';replaceSlidePic(k,f);return}
   if(t.dataset.pjcov!==undefined&&t.files&&t.files[0]){const f=t.files[0];t.value='';setProjCover(f);return}
   if(t.dataset.pjrep!==undefined&&t.files&&t.files[0]){const f=t.files[0],k=+t.dataset.pjrep;t.value='';replaceProjPic(k,f);return}
+  if(t.dataset.pjlogo!==undefined&&t.files&&t.files[0]){const f=t.files[0];t.value='';setProjLogo(f);return}
+  if(t.dataset.pclogo!==undefined&&t.files&&t.files[0]){const f=t.files[0],k=+t.dataset.pclogo;t.value='';setCatLogo(k,f);return}
   if(t.dataset.pccov!==undefined&&t.files&&t.files[0]){const f=t.files[0],k=+t.dataset.pccov;t.value='';setCatCover(k,f);return}
   if(t.dataset.pcslug!==undefined){const c=S.projCats[+t.dataset.pcslug];if(c){const n=uniqCatSlug(slug(c.slug||'').replace(/-+$/,'')||slug(c.name||'').replace(/-+$/,'')||'category',c);if(n!==c.slug){c.slug=n;render()}}}
   if(t.dataset.pjslug){const x=curProj();if(x){const n=uniqProjSlug(slug(x.slug||'').replace(/-+$/,'')||slug(x.title||'').replace(/-+$/,'')||'project',x);if(n!==x.slug){x.slug=n;render()}}}
