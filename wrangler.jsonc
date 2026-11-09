@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "website-db",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "de1ff0da-e359-47c2-a242-13ec676f4f53",
       "migrations_dir": "migrations"
     }
   ],
