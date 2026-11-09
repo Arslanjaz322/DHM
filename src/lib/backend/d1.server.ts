@@ -6,8 +6,23 @@ type D1Result = { results?: Record<string, unknown>[]; meta?: { changes?: number
 type D1Stmt = { bind: (...v: unknown[]) => D1Stmt; all: () => Promise<D1Result>; run: () => Promise<D1Result> };
 export type D1Database = { prepare: (sql: string) => D1Stmt };
 
+// Worker bindings (DB, MEDIA). They normally arrive through src/server.ts, but when the Nitro-built Worker
+// does not pass `env` to that wrapper they would be missing ("Database binding DB is missing"). So we also
+// read them straight from the Workers runtime module `cloudflare:workers`. The specifier is a variable so
+// bundlers and tests never try to resolve it; outside Cloudflare the import simply fails and is ignored.
+let runtimeEnv: Record<string, unknown> | undefined;
+try {
+  const spec = "cloudflare:workers";
+  const m = (await import(/* @vite-ignore */ spec)) as { env?: Record<string, unknown> };
+  runtimeEnv = m.env;
+} catch {
+  runtimeEnv = undefined;
+}
+
 export function cfEnv(): Record<string, unknown> {
-  return ((globalThis as Record<string, unknown>)["__CF_ENV__"] as Record<string, unknown>) || {};
+  const g = (globalThis as Record<string, unknown>)["__CF_ENV__"] as Record<string, unknown> | undefined;
+  if (g && (g["DB"] || g["MEDIA"])) return g;
+  return runtimeEnv || g || {};
 }
 
 export function d1(): D1Database {
