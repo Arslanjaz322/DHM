@@ -286,6 +286,60 @@ pre.code{margin:0;background:var(--surface);border:1px solid var(--line);border-
   .edit2 .tb.pvbig{width:100%;height:520px;position:static}
 }
 
+/* FAQs page, WhatsApp button and phone-screen fixes */
+.fqs-in{width:100%;padding:12px 14px;font:16px var(--font-body);border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);margin:2px 0 16px}
+.fqw{display:grid;grid-template-columns:240px minmax(0,1fr);gap:20px;align-items:start}
+.fqc{display:flex;flex-direction:column;gap:8px;min-width:0}
+.fqp{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:11px 16px;font:500 14px var(--font-body);cursor:pointer;text-align:left}
+.fqp:hover{border-color:var(--acc)}
+.fqp[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--acc-fg);font-weight:600}
+.fql{display:flex;flex-direction:column;gap:10px;min-width:0}
+.fq{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.fq summary{list-style:none;cursor:pointer;display:flex;gap:10px;align-items:center;padding:14px 16px;font:600 15px var(--font-body);background:var(--acc);color:var(--acc-fg)}
+.fq summary::-webkit-details-marker{display:none}
+.fq summary::before{content:"+";flex:none;width:22px;height:22px;border:2px solid currentColor;border-radius:50%;display:grid;place-items:center;font-size:16px;line-height:1}
+.fq[open] summary::before{content:"\2212"}
+.fq summary span{flex:1;min-width:0;overflow-wrap:anywhere}
+.fq summary small{font:500 11px var(--font-mono);opacity:.85;margin-left:auto}
+.fqa{padding:14px 16px;line-height:1.7;font-size:14px;overflow-wrap:anywhere}
+.fqa p{margin:0 0 10px}.fqa ul{margin:0 0 10px;padding-left:20px}.fqa>:last-child{margin-bottom:0}
+.fqe{padding:18px;color:var(--muted)}
+#wa .wa{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:45;width:58px;height:58px;border-radius:50%;background:#25D366;display:grid;place-items:center;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);animation:wapulse 2.2s infinite}
+#wa .wa.r{right:16px}#wa .wa.l{left:16px}
+#wa .wa.up{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+#wa .wa:hover{background:#1ebe5b}
+@keyframes wapulse{0%{box-shadow:0 0 0 0 rgba(37,211,102,.55),0 4px 14px rgba(0,0,0,.3)}70%{box-shadow:0 0 0 16px rgba(37,211,102,0),0 4px 14px rgba(0,0,0,.3)}100%{box-shadow:0 0 0 0 rgba(37,211,102,0),0 4px 14px rgba(0,0,0,.3)}}
+@media (prefers-reduced-motion:reduce){#wa .wa{animation:none}}
+@media (max-width:760px){
+  /* header: logo, then Menu and bell on the same row; the menu opens below, every row aligned the same way */
+  .hd{gap:8px 10px;padding:10px 12px}
+  .hd .lg{order:0;flex:1 1 auto;min-width:0;font-size:18px;overflow:hidden}
+  .burger{order:1;margin-left:0;min-height:40px;padding:6px 14px}
+  .bellw{order:2}
+  .nv{order:3;gap:0;border-top:1px solid var(--line);padding-top:6px}
+  .nv>.nb,.nv .dd>.nb{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;padding:10px 12px;text-align:left;font-size:15px}
+  .nv .dd{width:100%}
+  .nv .dm{margin:0 0 6px 12px;border:0;border-left:2px solid var(--line);border-radius:0;padding:0 0 0 6px;min-width:0;box-shadow:none}
+  .nv .dm .nb{min-height:42px;padding:10px 12px;font-size:14px}
+  /* hero: taller picture, readable caption, easier-to-tap arrows */
+  .hero{aspect-ratio:16/10}
+  .cap{padding:34px 12px 12px}.cap h3{font-size:18px}.cap p{font-size:13px}
+  .dots{top:10px;right:10px}.dot{width:16px}
+  .ar{width:36px;height:36px}
+  /* tool boxes fill the width in two columns */
+  .tools{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .flip,.tb{max-width:none}
+  .flip .ff h3{font-size:19px}
+  .mn{padding:14px 12px 24px;gap:26px}
+  h2{font-size:21px}
+  .fqw{grid-template-columns:1fr}
+  .fqc{flex-direction:row;flex-wrap:wrap}
+  .fqp{flex:1 1 auto;text-align:center;padding:10px 14px}
+  .fq summary{padding:13px 14px;font-size:14px}
+  #wa .wa{width:54px;height:54px}
+  #wa .wa.up{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+}
+
 /* article photo gallery, lightbox, video library, admin picture grid */
 .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px}
 .gi{border:0;padding:0;background:var(--soft);border-radius:10px;overflow:hidden;cursor:zoom-in;aspect-ratio:2/1;display:block}
@@ -450,6 +504,7 @@ a.nb{text-decoration:none;display:inline-block}
 </div>
 <div id="toasts" aria-live="polite"></div>
 <div id="cookie"></div>
+<div id="wa"></div>
 <div id="modal"></div>
 <div id="savebar"></div>
 
@@ -637,6 +692,8 @@ const P=()=>Object.assign({},PERF_DEF,S.perf||{});
 /* project categories shown in the Projects menu (id stays fixed; name and address can be edited) */
 const PROJ_CATS_DEF=()=>[{id:'developed',name:'Developed Projects',slug:'developed-projects'},{id:'under-development',name:'Under-Development Projects',slug:'under-development-projects'},{id:'upcoming',name:'Upcoming Projects',slug:'upcoming-projects'}];
 let TOOLTOK=null;try{TOOLTOK=sessionStorage.getItem('maskan_otok')||null}catch(e){}
+const FAQ_CATS_DEF=()=>['GENERAL','Villas','RUMANZA GOLF COURSE COMMUNITY','Land','Transfer and Record'].map((n,i)=>({id:'fc'+(i+1),name:n,pub:true}));
+const WA_DEF=()=>({on:true,num:'',msg:'Assalam o Alaikum, I would like some information.',side:'right',where:'all'});
 const S={
   view:/^\/admin\/?$/.test(location.pathname)?'admin':'site',route:'home',sub:'',get admin(){return /^\/admin\/?$/.test(location.pathname)||this.view==='admin'||(this.sub==='admin'&&!!TOOLTOK)},set admin(v){},sec:'custom',inline:false,
   title:'Maskan Estates',logo:'M',logoImg:'/logo.png',accent:0,accentCustom:'',siteBg:'#f6faf7',surface:'#ffffff',
@@ -646,6 +703,7 @@ const S={
     {label:'Newsflash',route:'news',dd:false},
     {label:'Projects',route:'projects',dd:false},
     {label:'Documents',route:'docs',dd:false},
+    {label:'FAQs',route:'faqs',dd:false},
     {label:'Videos',route:'videos',dd:false},
     {label:'Gallery',route:'gallery',dd:false},
     {label:'About',route:'p:about',dd:true},
@@ -675,6 +733,7 @@ const S={
   notes:[],unread:0,banner:'',
   seo:{tpl:'%page% | %site%',desc:'Property listings, calculators and Newsflash updates for plot owners and buyers in Lahore, Islamabad and Multan.',og:'',ads:'',head:''},
   perf:Object.assign({},PERF_DEF),
+  faqCats:FAQ_CATS_DEF(),faqs:[],faqNav:true,wa:WA_DEF(),
   ui:{doc:null,dl:false,sel:0,pg:0,ar:0,vi:0,pj:0,pjOpen:'',pjcat:'',year:'All',bsel:0,crop:'50',gcat:''}
 };
 const ACCENTS=[{n:'Green',l:['#15803d','#ffffff']},{n:'Emerald',l:['#047857','#ffffff']},{n:'Teal',l:['#0b6b5d','#ffffff']},{n:'Forest',l:['#166534','#ffffff']},{n:'Olive',l:['#4d7c0f','#ffffff']}].map(a=>({...a,d:a.l}));
@@ -682,7 +741,7 @@ const PRESETS=[{n:'White & green',a:0,bg:'#f6faf7',s:'#ffffff'},{n:'Pure white',
 const fgFor=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return '#ffffff';const n=parseInt(m[1],16),r=n>>16,g=(n>>8)&255,b=n&255;return (0.299*r+0.587*g+0.114*b)>160?'#0f1917':'#ffffff'};
 
 /* ---------- save / load (draft -> live) ---------- */
-const KEYS=['title','logo','logoImg','accent','accentCustom','siteBg','surface','nav','delay','slides','boxes','docs','pages','arts','vids','vidNav','gal','galNav','projs','projCats','projNav','seo','banner','notes','perf'];
+const KEYS=['title','logo','logoImg','accent','accentCustom','siteBg','surface','nav','delay','slides','boxes','docs','pages','arts','vids','vidNav','gal','galNav','projs','projCats','projNav','seo','banner','notes','perf','faqCats','faqs','faqNav','wa'];
 const pick=()=>{const o={};KEYS.forEach(k=>o[k]=S[k]);return o};
 const snap=()=>JSON.stringify(pick());
 let SAVED=snap(),LASTSAVE=0,SESSION_SAVED=false,bT=null,AUTOSAVE=LS.get('maskan_autosave')!=='0';
@@ -706,6 +765,14 @@ function applyData(d){KEYS.forEach(k=>{if(d&&d[k]!==undefined)S[k]=d[k]});S.perf
   if(d&&!d.galNav){if(!S.nav.some(n=>n.route==='gallery')){const k=S.nav.findIndex(n=>n.route==='videos');S.nav.splice(k<0?S.nav.length:k+1,0,{label:'Gallery',route:'gallery',dd:false})}S.galNav=true}
   /* one-time: sites saved before the Video library existed get a Videos menu link (removing it later sticks) */
   if(d&&!d.vidNav){if(!S.nav.some(n=>n.route==='videos')){const k=S.nav.findIndex(n=>n.route==='docs');S.nav.splice(k<0?S.nav.length:k+1,0,{label:'Videos',route:'videos',dd:false})}S.vidNav=true}
+  /* FAQs and the WhatsApp button: fill missing fields so their screens never break */
+  if(!Array.isArray(S.faqCats))S.faqCats=FAQ_CATS_DEF();
+  S.faqCats=S.faqCats.filter(c=>c&&typeof c==='object');S.faqCats.forEach((c,j)=>{c.name=String(c.name==null?'Category':c.name);c.id=String(c.id||('fc'+(j+1)));c.pub=c.pub!==false});
+  if(!Array.isArray(S.faqs))S.faqs=[];
+  S.faqs=S.faqs.filter(f=>f&&typeof f==='object');S.faqs.forEach(f=>{['q','a','cat'].forEach(k=>{f[k]=f[k]==null?'':String(f[k])});f.pub=f.pub!==false});
+  S.wa=Object.assign(WA_DEF(),(S.wa&&typeof S.wa==='object')?S.wa:{});['num','msg'].forEach(k=>{if(typeof S.wa[k]!=='string')S.wa[k]=String(S.wa[k]==null?'':S.wa[k])});
+  /* one-time: sites saved before FAQs existed get an FAQs menu link (removing it later sticks) */
+  if(d&&!d.faqNav){if(!S.nav.some(n=>n.route==='faqs')){const k=S.nav.findIndex(n=>n.route==='docs');S.nav.splice(k<0?S.nav.length:k+1,0,{label:'FAQs',route:'faqs',dd:false})}S.faqNav=true}
   fixSlideSlugs()}
 const API='/api/site-data';
 let AUTH='0'.repeat(64),syncT=null,syncing=false,syncMsg='',REMOTE_AT=0,RETRIES=0,CONFLICT=false;
@@ -814,7 +881,7 @@ function dlFile(d){if(!/^(data:|blob:)/i.test(String(d&&d.url||'')))return;const
 function dataBlobURL(u,force){try{const[h,b]=u.split(',');const mime=force||(h.match(/:(.*?);/)||[])[1]||'application/octet-stream';const bin=atob(b),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([arr],{type:mime}))}catch(e){return ''}}
 const pubArts=()=>S.arts.filter(a=>a.pub);
 const visPages=()=>S.pages.filter(p=>p.pub);
-function routes(){return [{r:'home',l:'Home',p:'/'},{r:'news',l:'Newsflash',p:'/newsflash'},{r:'projects',l:'Projects',p:'/projects'},...(S.projCats||[]).map(c=>({r:'pc:'+c.slug,l:c.name,p:'/projects/'+c.slug})),{r:'docs',l:'Documents',p:'/doc'},{r:'videos',l:'Videos',p:'/videos'},{r:'gallery',l:'Gallery',p:'/gallery'},...visPages().map(p=>({r:'p:'+p.slug,l:p.title,p:'/'+p.slug}))]}
+function routes(){return [{r:'home',l:'Home',p:'/'},{r:'news',l:'Newsflash',p:'/newsflash'},{r:'projects',l:'Projects',p:'/projects'},...(S.projCats||[]).map(c=>({r:'pc:'+c.slug,l:c.name,p:'/projects/'+c.slug})),{r:'docs',l:'Documents',p:'/doc'},{r:'videos',l:'Videos',p:'/videos'},{r:'gallery',l:'Gallery',p:'/gallery'},{r:'faqs',l:'FAQs',p:'/faqs'},...visPages().map(p=>({r:'p:'+p.slug,l:p.title,p:'/'+p.slug}))]}
 const artOf=r=>S.arts.find(a=>'a:'+a.slug===r);
 const pathOf=r=>{const a=artOf(r);if(a)return '/newsflash/'+a.slug;const pj=projOf(r);if(pj)return projPath(pj);const vv=vidOf(r);if(vv)return '/videos/'+vv.slug;const ff=fOf(r);if(ff)return '/featured/'+ff.slug;if(r.startsWith('t:')){const b=S.boxes[+r.slice(2)];return '/tools/'+(b?slug(b.title).replace(/-+$/,''):'')}return (routes().find(x=>x.r===r)||{p:'/'}).p};
 /* ---------- real page addresses: /, /newsflash, /tools/<tool>, /tools/<tool>/<tab>, /admin ---------- */
@@ -1231,6 +1298,7 @@ function pageMeta(){
   {const pj=projOf(S.route);if(pj)return {title:tplTitle(pj.title),desc:(String(pj.sum||'').trim()||plain(pj.body||'')).replace(/\s+/g,' ').slice(0,155)||S.seo.desc,img:absImg(projCover(pj))||S.seo.og}}
   {const pc=pcOf(S.route);if(pc)return {title:tplTitle(pc.name),desc:String(pc.sum||'').trim()||(pc.name+' by '+S.title+': photos and details of each project.'),img:absImg(catCover(pc))||S.seo.og}}
   if(S.route==='projects')return {title:tplTitle('Projects'),desc:'Projects by '+S.title+': photos and details, grouped by category.',img:absImg(projCover(pubProjs()[0]))||S.seo.og};
+  if(S.route==='faqs')return {title:tplTitle('FAQs'),desc:'Answers to frequently asked questions from '+S.title+'.'};
   if(S.route==='videos')return {title:tplTitle('Videos'),desc:'Watch '+S.title+' videos, played from our official channels.'};
   if(S.route==='gallery')return {title:tplTitle('Gallery'),desc:'Photo gallery from '+S.title+'.',img:absImg((pubGal()[0]||{}).img)||S.seo.og};
   {const v=vidOf(S.route),y=v&&vidParse(v.url);if(y)return {title:tplTitle(v.title),desc:(v.desc||'').replace(/\s+/g,' ').slice(0,155)||S.seo.desc,type:'video.other',img:absImg(v.thumb)||y.thumb||S.seo.og}}
@@ -1257,7 +1325,7 @@ function applyHead(){
 
 /* ---------- site views ---------- */
 function headerHTML(){
-  const ok=n=>routes().some(r=>r.r===n.route)&&!(n.route==='videos'&&!S.admin&&!pubVids().length)&&!(n.route==='gallery'&&!S.admin&&!pubGal().length);
+  const ok=n=>routes().some(r=>r.r===n.route)&&!(n.route==='videos'&&!S.admin&&!pubVids().length)&&!(n.route==='gallery'&&!S.admin&&!pubGal().length)&&!(n.route==='faqs'&&!S.admin&&!pubFaqs().length);
   const nav=S.nav.filter(ok),top=nav.filter(n=>!n.dd),dd=nav.filter(n=>n.dd);
   const cur=r=>(S.route===r||(r==='news'&&S.route.startsWith('a:'))||(r==='videos'&&S.route.startsWith('v:'))||(r==='projects'&&/^p[cj]:/.test(S.route)))?' aria-current="page"':'';
   /* Projects menu item: opens a list of the project categories */
@@ -1332,6 +1400,43 @@ function watchHTML(v){
 /* ---------- image gallery (public page /gallery) ---------- */
 const galCats=()=>[...new Set(pubGal().map(g=>String(g.cat||'').trim()).filter(Boolean))];
 function galList(){const all=pubGal(),sel=String(S.ui.gcat||'').trim();return sel&&galCats().includes(sel)?all.filter(g=>String(g.cat||'').trim()===sel):all}
+/* ---------- FAQs (public page) ---------- */
+const pubFaqs=()=>{const ids=new Set(S.faqCats.filter(c=>c.pub).map(c=>c.id));return S.faqs.filter(f=>f.pub&&f.q.trim()&&f.a.trim()&&ids.has(f.cat))};
+/* answer text: blank line = new paragraph, lines starting with "- " = list, **bold** */
+function faqFmt(s){
+  const out=[],inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');let ul=null,pp=[];
+  const fp=()=>{if(pp.length){out.push('<p>'+pp.map(inl).join('<br>')+'</p>');pp=[]}},fu=()=>{if(ul){out.push('<ul>'+ul.map(x=>'<li>'+inl(x)+'</li>').join('')+'</ul>');ul=null}};
+  for(const raw of String(s||'').replace(/\r/g,'').split('\n')){const x=raw.trim();if(!x){fp();fu();continue}const m=/^[-*\u2022]\s+(.*)$/.exec(x);if(m){fp();(ul=ul||[]).push(m[1])}else{fu();pp.push(x)}}
+  fp();fu();return out.join('');
+}
+function faqPillsHTML(){
+  const all=pubFaqs(),cats=S.faqCats.filter(c=>c.pub&&all.some(f=>f.cat===c.id));
+  if(!cats.some(c=>c.id===S.ui.fqcat))S.ui.fqcat=(cats[0]||{}).id||'';
+  return cats.map(c=>`<button class="fqp" data-act="fqcat" data-id="${esc(c.id)}" aria-pressed="${c.id===S.ui.fqcat&&!S.ui.fqq}">${esc(c.name)}</button>`).join('');
+}
+function faqListHTML(){
+  const t=String(S.ui.fqq||'').trim().toLowerCase(),all=pubFaqs(),cn=id=>(S.faqCats.find(c=>c.id===id)||{}).name||'';
+  const items=t?all.filter(f=>(f.q+' '+f.a).toLowerCase().includes(t)):all.filter(f=>f.cat===S.ui.fqcat);
+  return items.length?items.map(f=>`<details class="fq"><summary><span>${esc(f.q)}</span>${t?`<small>${esc(cn(f.cat))}</small>`:''}</summary><div class="fqa">${faqFmt(f.a)}</div></details>`).join(''):`<div class="fqe">${all.length?'No questions found.':'No FAQs have been published yet.'}</div>`;
+}
+function faqsHTML(){
+  const pills=faqPillsHTML();
+  return `<section><div class="sech"><div><h1 style="font-size:34px">FAQs</h1><p class="sub">Answers to common questions. Pick a category or search.</p></div><span class="tag">/faqs</span></div>
+  <input id="fqs" class="fqs-in" type="search" placeholder="Search questions\u2026" aria-label="Search questions" value="${esc(S.ui.fqq||'')}" autocomplete="off">
+  <div class="fqw"><nav class="fqc" id="fqc" aria-label="FAQ categories">${pills}</nav><div class="fql" id="fql">${faqListHTML()}</div></div></section>`;
+}
+function faqRefresh(){const c=$('#fqc'),l=$('#fql');if(c)c.innerHTML=faqPillsHTML();if(l)l.innerHTML=faqListHTML()}
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='fqs'){S.ui.fqq=e.target.value;faqRefresh()}});
+
+/* ---------- WhatsApp button (floats over the site; hidden until a number is set in Admin) ---------- */
+const waNum=v=>{let n=String(v||'').replace(/\D+/g,'');if(n.startsWith('00'))n=n.slice(2);if(/^0\d{10}$/.test(n))n='92'+n.slice(1);return /^\d{8,15}$/.test(n)?n:''};
+const waURL=()=>{const w=S.wa||{},n=waNum(w.num),m=String(w.msg||'').trim().slice(0,300);return n?'https://wa.me/'+n+(m?'?text='+encodeURIComponent(m):''):''};
+function renderWA(cookieShown){
+  const el=$('#wa');if(!el)return;
+  const w=S.wa||{},u=waURL();
+  const show=S.view==='site'&&!S.route.startsWith('t:')&&!!u&&w.on!==false&&(w.where!=='home'||S.route==='home');
+  el.innerHTML=show?`<a class="wa ${w.side==='left'?'l':'r'}${cookieShown?' up':''}" href="${esc(u)}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp" title="Chat on WhatsApp"><svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path fill="#fff" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.8 2 6.8L3 29l6.6-2c1.9 1 4 1.6 6.4 1.6 7.2 0 13-5.7 13-12.8S23.200 3 16 3z"/><path fill="#25D366" transform="translate(8 8) scale(.67)" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></a>`:'';
+}
 function galleryHTML(){
   const all=pubGal(),cats=galCats(),sel=cats.includes(S.ui.gcat)?S.ui.gcat:'',list=galList();
   return `<section><div class="sech"><div><h1 style="font-size:34px">Photo gallery</h1><p class="sub">Photos from ${esc(S.title)}. Click a photo to enlarge it.</p></div><span class="tag">/gallery</span></div>
@@ -1456,7 +1561,7 @@ function siteHTML(){
   if(S.route.startsWith('pc:')&&!pcOf(S.route))S.route='projects';
   const r=S.route;
   if(r.startsWith('t:'))return toolHTML(+r.slice(2));
-  const body=r==='home'?homeHTML():r.startsWith('t:')?toolHTML(+r.slice(2)):r==='news'?newsHTML():r==='docs'?docsHTML():r==='videos'?videosHTML():r==='gallery'?galleryHTML():r.startsWith('v:')?watchHTML(vidOf(r)):r.startsWith('f:')?featHTML(fOf(r)):r.startsWith('a:')?artHTML(artOf(r)):r==='projects'?projListHTML(null):r.startsWith('pc:')?projListHTML(pcOf(r)):r.startsWith('pj:')?projHTML(projOf(r)):pageHTML(r.slice(2));
+  const body=r==='home'?homeHTML():r.startsWith('t:')?toolHTML(+r.slice(2)):r==='news'?newsHTML():r==='docs'?docsHTML():r==='videos'?videosHTML():r==='gallery'?galleryHTML():r==='faqs'?faqsHTML():r.startsWith('v:')?watchHTML(vidOf(r)):r.startsWith('f:')?featHTML(fOf(r)):r.startsWith('a:')?artHTML(artOf(r)):r==='projects'?projListHTML(null):r.startsWith('pc:')?projListHTML(pcOf(r)):r.startsWith('pj:')?projHTML(projOf(r)):pageHTML(r.slice(2));
   return (S.banner?`<div class="ban"><span>${esc(S.banner)}</span><button data-act="banx">Dismiss</button></div>`:'')+headerHTML()+`<main class="mn">${body}</main>`+footerHTML();
 }
 
@@ -1485,7 +1590,7 @@ function mountHero(){
 }
 
 /* ---------- admin views ---------- */
-const SECS=[['custom','Site customizer'],['slider','Hero slider'],['tools','HTML tool boxes'],['boxadm','Box admin panels'],['docs','Documents'],['arts','Newsflash articles'],['pcats','Project categories'],['projs','Projects'],['vids','Video library'],['gal','Image gallery'],['pages','Pages'],['seo','Website SEO & AdSense'],['optim','Optimise & speed'],['check','Site check & AdSense'],['backups','Backups & history']];
+const SECS=[['custom','Site customizer'],['slider','Hero slider'],['tools','HTML tool boxes'],['boxadm','Box admin panels'],['docs','Documents'],['arts','Newsflash articles'],['pcats','Project categories'],['projs','Projects'],['vids','Video library'],['gal','Image gallery'],['pages','Pages'],['faqs','FAQs'],['wa','WhatsApp button'],['seo','Website SEO & AdSense'],['optim','Optimise & speed'],['check','Site check & AdSense'],['backups','Backups & history']];
 const OWNER_ONLY=['acct','backups','seo'];
 const isOwner=()=>(S.role||'owner')==='owner';
 function field(l,path,val,o={}){const id='f-'+path.replace(/\./g,'-');return `<div class="f"><label for="${id}">${l}</label><input id="${id}" type="${o.type||'text'}" data-b="${path}" ${o.num?'data-num="1"':''} value="${esc(val)}" ${o.min!==undefined?`min="${o.min}"`:''} ${o.step?`step="${o.step}"`:''}></div>`}
@@ -1871,6 +1976,40 @@ function vPrev(v){
   const t=vidThumb(v,y),L=vidLabel(y),open=S.ui.vplay===v.slug;
   return `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">${t?`<img src="${esc(t)}" alt="" style="width:160px;height:90px;object-fit:cover;border-radius:6px">`:`<span class="vph" style="width:160px;height:90px;border-radius:6px"><b>${esc(L.replace(/^a /,''))}</b></span>`}<span class="note">${esc(y.p==='file'?'Video file found':L+' video found'+(y.id?' ('+y.id+(y.start?', starts at '+y.start+'s':'')+')':''))}. It plays on your site${y.p==='file'?'':' from '+esc(L)}.</span><button class="btn sm" data-act="vplay">${open?'Hide player preview':'Show player preview'}</button></div>${open?`<div style="width:100%;max-width:560px;margin-top:10px">${playerHTML(v,y)}</div>`:''}${/^(facebook|instagram|tiktok|x)$/.test(y.p)?'<p class="note">Only public posts can be embedded. If the player says \u201cunavailable\u201d, the post is private or its owner turned embedding off.</p>':''}`;
 }
+/* ---------- FAQs (admin) ---------- */
+const nextFcId=()=>{let n=1;while(S.faqCats.some(c=>c.id==='fc'+n))n++;return 'fc'+n};
+function faqMove(i,d){const cat=S.faqs[i].cat;let j=i+d;while(j>=0&&j<S.faqs.length&&S.faqs[j].cat!==cat)j+=d;if(j<0||j>=S.faqs.length)return;swap(S.faqs,i,j)}
+function secFaqs(){
+  const cats=S.faqCats;
+  if(!cats.some(c=>c.id===S.ui.fqac))S.ui.fqac=(cats[0]||{}).id||'';
+  const ci=cats.findIndex(c=>c.id===S.ui.fqac),c=cats[ci],rows=[];
+  S.faqs.forEach((f,i)=>{if(f.cat===S.ui.fqac)rows.push(i)});
+  const cnt=id=>S.faqs.filter(f=>f.cat===id).length;
+  return `<h2>FAQs</h2><p class="sub">Questions and answers shown on your website at <b>/faqs</b> and described to Google as an FAQ page. Pick a category, add questions and tick Published. In an answer, a blank line starts a new paragraph, a line starting with \u201c- \u201d becomes a list item, and **double asterisks** make text bold.</p>
+  <div class="cols"><div class="pl">${cats.map((x,j)=>`<button data-act="fqac" data-id="${esc(x.id)}" aria-pressed="${x.id===S.ui.fqac}"><span id="fqcl-${j}">${esc(x.name||'Untitled')}</span><span class="badge">${cnt(x.id)}</span>${x.pub?'':'<span class="badge">HIDDEN</span>'}</button>`).join('')}<button class="btn pri" data-act="fqcadd">Add category</button></div>
+  ${c?`<div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+   <div class="zbox"><div class="f"><label for="fqcn">Category name</label><input id="fqcn" type="text" data-b="faqCats.${ci}.name" data-live="fqcl-${ci}" value="${esc(c.name)}"></div>
+   <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqCats.${ci}.pub" data-rr="1" ${c.pub?'checked':''}> Visible on the website</label><button class="btn sm" data-act="fqcup" data-i="${ci}" aria-label="Move category up">&uarr;</button><button class="btn sm" data-act="fqcdn" data-i="${ci}" aria-label="Move category down">&darr;</button><button class="btn sm warn" data-act="fqcdel" data-i="${ci}">Delete category</button></div></div>
+   <div><button class="btn pri" data-act="fqadd">Add question</button></div>
+   ${rows.length?rows.map((i,n)=>{const f=S.faqs[i];return `<div class="zbox"><div class="f"><label for="fqq${i}">Question ${n+1}</label><input id="fqq${i}" type="text" data-b="faqs.${i}.q" value="${esc(f.q)}"></div>
+    <div class="f"><label for="fqa${i}">Answer</label><textarea id="fqa${i}" data-b="faqs.${i}.a" style="min-height:120px;font-family:var(--font-body);font-size:14px">${esc(f.a)}</textarea></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqs.${i}.pub" ${f.pub?'checked':''}> Published</label><button class="btn sm" data-act="fqup" data-i="${i}" aria-label="Move question up">&uarr;</button><button class="btn sm" data-act="fqdn" data-i="${i}" aria-label="Move question down">&darr;</button><button class="btn sm warn" data-act="fqdel" data-i="${i}">Delete</button></div></div>`}).join(''):'<p class="sub">No questions in this category yet. Click \u201cAdd question\u201d.</p>'}
+  </div>`:'<p class="sub">No categories yet. Click \u201cAdd category\u201d.</p>'}</div>`;
+}
+
+/* ---------- WhatsApp button (admin) ---------- */
+function secWA(){
+  const w=S.wa,u=waURL(),sel=(v,o)=>v===o?' selected':'';
+  return `<h2>WhatsApp button</h2><p class="sub">A green WhatsApp button floats over your website, on top of the hero slider on the home page. When a visitor taps it, WhatsApp opens a chat with your number. Leave the number empty to hide the button.</p>
+  <div class="g2"><div class="f"><label for="wa-num">WhatsApp number (with country code)</label><input id="wa-num" type="text" inputmode="tel" data-b="wa.num" data-rr="1" placeholder="923001234567" value="${esc(w.num)}"></div>
+  <div class="f"><label for="wa-msg">Message the visitor starts with</label><input id="wa-msg" type="text" data-b="wa.msg" data-rr="1" maxlength="300" value="${esc(w.msg)}"></div></div>
+  <p class="note">Example: 923001234567 or 0300 1234567 (a leading 0 becomes 92). Digits only; a + sign and spaces are fine.</p>
+  <div class="g2"><div class="f"><label for="wa-side">Button position</label><select id="wa-side" data-b="wa.side"><option value="right"${sel(w.side,'right')}>Bottom right</option><option value="left"${sel(w.side,'left')}>Bottom left</option></select></div>
+  <div class="f"><label for="wa-where">Show the button on</label><select id="wa-where" data-b="wa.where"><option value="all"${sel(w.where,'all')}>Every page</option><option value="home"${sel(w.where,'home')}>Home page only</option></select></div></div>
+  <label class="chk"><input type="checkbox" data-b="wa.on" ${w.on!==false?'checked':''}> Show the WhatsApp button</label>
+  <p class="note">${u?`Chat link: <a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a> (tap it to test).`:'There is no valid number yet, so the button is hidden on the website.'}</p>`;
+}
+
 /* ---------- image gallery (admin) ---------- */
 function secGal(){
   const n=S.gal.length,pub=S.gal.filter(g=>g.pub).length,cats=[...new Set(S.gal.map(g=>String(g.cat||'').trim()).filter(Boolean))];
@@ -2042,7 +2181,7 @@ function loginHTML(){return `<form class="login" id="login" data-lform="1"><h2>A
    <div class="err" id="lerr" role="alert"></div><button class="btn pri" type="submit">Sign in</button></form>`}
 function adminHTML(){
   if(!S.admin)return loginHTML();
-  const m={custom:secCustom,slider:secSlider,tools:secTools,boxadm:secBoxAdm,optim:secOpt,docs:secDocs,arts:secArts,pcats:secPCats,projs:secProjs,vids:secVids,gal:secGal,pages:secPages,seo:secSeo,bcast:secBcast,acct:secAcct,check:secCheck,backups:secBackups,media:secMedia,log:secLog,team:secTeam}[(!isOwner()&&OWNER_ONLY.includes(S.sec))||!SECS.some(x=>x[0]===S.sec)?'custom':S.sec];
+  const m={custom:secCustom,slider:secSlider,tools:secTools,boxadm:secBoxAdm,optim:secOpt,docs:secDocs,arts:secArts,pcats:secPCats,projs:secProjs,vids:secVids,gal:secGal,pages:secPages,faqs:secFaqs,wa:secWA,seo:secSeo,bcast:secBcast,acct:secAcct,check:secCheck,backups:secBackups,media:secMedia,log:secLog,team:secTeam}[(!isOwner()&&OWNER_ONLY.includes(S.sec))||!SECS.some(x=>x[0]===S.sec)?'custom':S.sec];
   return `<div class="adm"><nav class="as" aria-label="Admin sections">${SECS.filter(([k])=>isOwner()||!OWNER_ONLY.includes(k)).map(([k,l])=>`<button data-act="sec" data-k="${k}" ${k===S.sec?'aria-current="true"':''}>${l}</button>`).join('')}</nav><div class="ac">${m()}</div></div>`;
 }
 
@@ -2558,6 +2697,7 @@ async function tmAdd(){
 /* ---------- render ---------- */
 function renderCookie(){
   const c=LS.get('cc');
+  try{renderWA(S.view==='site'&&!c)}catch(_){}
   $('#cookie').innerHTML=(S.view==='site'&&!c)?`<div class="ck" role="dialog" aria-label="Cookie consent"><p>We use cookies for analytics and Google AdSense ads. Read our <a data-act="go" data-r="p:privacy-policy">Privacy Policy</a>.</p><div style="display:flex;gap:8px"><button class="btn" data-act="cc" data-v="declined">Decline</button><button class="btn pri" data-act="cc" data-v="accepted">Accept</button></div></div>`:'';
 }
 /* "Last updated: [date]" in the legal pages fills itself with the date of the last save (or today if never saved). */
@@ -2741,6 +2881,15 @@ document.addEventListener('click',e=>{
     case 'updsrc':{const sel=document.getElementById('upd-src'),j=sel&&sel.value!==''?+sel.value:-1,src=S.boxes[j];
       if(!src){toast('Pick the box to copy from first.');break}
       S.ui.upd={i:S.ui.sel,name:'Box '+(j+1)+': '+src.title,code:String(src.code||'')};render();{const pn=document.getElementById('updpanel');if(pn&&pn.scrollIntoView)pn.scrollIntoView({block:'center',behavior:'smooth'})}break}
+    case 'fqcat':S.ui.fqcat=a.dataset.id;S.ui.fqq='';{const s=$('#fqs');if(s)s.value=''}faqRefresh();break;
+    case 'fqac':S.ui.fqac=a.dataset.id;render();break;
+    case 'fqcadd':{const id=nextFcId();S.faqCats.push({id,name:'New category',pub:true});S.ui.fqac=id;render();setTimeout(()=>{const e=$('#fqcn');if(e){e.focus();e.select()}},0);break}
+    case 'fqcdel':{const c=S.faqCats[i];if(c&&confirm('Delete the category \u201c'+c.name+'\u201d AND all its questions?')){S.faqs=S.faqs.filter(f=>f.cat!==c.id);S.faqCats.splice(i,1);S.ui.fqac='';render()}break}
+    case 'fqcup':swap(S.faqCats,i,i-1);render();break;
+    case 'fqcdn':swap(S.faqCats,i,i+1);render();break;
+    case 'fqadd':{if(!S.ui.fqac)break;S.faqs.push({cat:S.ui.fqac,q:'',a:'',pub:true});render();setTimeout(()=>{const e=document.getElementById('fqq'+(S.faqs.length-1));if(e){e.scrollIntoView({block:'center'});e.focus()}},0);break}
+    case 'fqdel':if(S.faqs[i]&&confirm('Delete this question?')){S.faqs.splice(i,1);render()}break;
+    case 'fqup':case 'fqdn':if(S.faqs[i]){faqMove(i,act==='fqup'?-1:1);render()}break;
     case 'vadd':{const n=S.vids.length+1;S.vids.unshift({slug:uniqVidSlug('new-video-'+n),title:'New video',url:'',desc:'',date:'',pub:false,auto:true});S.ui.vi=0;render();break}
     case 'vdel':if(confirm('Delete this video from the library? The original video on its platform is not touched.')){S.vids.splice(i,1);S.ui.vi=0;render()}break;
     case 'vup':swap(S.vids,i,i-1);S.ui.vi=Math.max(0,i-1);render();break;

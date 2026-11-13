@@ -101,6 +101,10 @@ const LABELS: Record<string, string> = {
   banner: "banner",
   notes: "notifications",
   perf: "speed settings",
+  faqs: "FAQs",
+  faqCats: "FAQ categories",
+  faqNav: "menu",
+  wa: "WhatsApp button",
 };
 
 function changedKeys(a: Json | undefined, b: Json): string {

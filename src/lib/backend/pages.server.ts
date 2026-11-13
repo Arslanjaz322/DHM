@@ -76,6 +76,7 @@ function pageMeta(d: Json, path: string, origin: string): Meta {
   }
   if (a === "videos") return { ...def, title: tpl("Videos"), desc: `Watch ${title} videos, played from our official channels.` };
   if (a === "gallery") return { ...def, title: tpl("Gallery"), desc: `Photo gallery from ${title}.` };
+  if (a === "faqs") return { ...def, title: tpl("FAQs"), desc: `Answers to frequently asked questions from ${title}.` };
   if (a === "doc") return { ...def, title: tpl("Documents"), desc: `Property checklists and document templates from ${title}.` };
   if (a === "featured" && b) {
     const f = (d.slides || []).find((x: Json) => x.slug === b);
@@ -88,6 +89,25 @@ function pageMeta(d: Json, path: string, origin: string): Meta {
   const pg = (d.pages || []).find((x: Json) => x.slug === a && x.pub);
   if (pg) return { ...def, title: tpl(pg.title), desc: plain(pg.body).slice(0, 155) || def.desc };
   return def;
+}
+
+// FAQ page: tells Google about every published question (schema.org FAQPage).
+function faqJsonLd(d: Json): string {
+  const ok = new Set((d.faqCats || []).filter((c: Json) => c && c.pub !== false).map((c: Json) => String(c.id)));
+  const items = (d.faqs || []).filter(
+    (f: Json) => f && f.pub !== false && ok.has(String(f.cat)) && String(f.q || "").trim() && String(f.a || "").trim(),
+  );
+  if (!items.length) return "";
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((f: Json) => ({
+      "@type": "Question",
+      name: String(f.q).trim(),
+      acceptedAnswer: { "@type": "Answer", text: String(f.a).replace(/\*\*/g, "").trim() },
+    })),
+  };
+  return JSON.stringify(ld).replace(/</g, "\\u003c");
 }
 
 function seoHead(d: Json, path: string, origin: string): string {
@@ -113,6 +133,10 @@ function seoHead(d: Json, path: string, origin: string): string {
       );
     }
     if (typeof seo.head === "string" && seo.head.trim()) out.push(seo.head);
+    if (path.replace(/\/+$/, "") === "/faqs") {
+      const ld = faqJsonLd(d);
+      if (ld) out.push(`<script type="application/ld+json">${ld}</script>`);
+    }
   }
   return out.filter(Boolean).join("\n");
 }
@@ -175,6 +199,7 @@ export async function renderSitemap(request: Request): Promise<Response> {
   for (const a of d.arts || []) if (a.pub && a.slug) paths.add("/newsflash/" + a.slug);
   for (const v of d.vids || []) if (v.pub && v.slug) paths.add("/videos/" + v.slug);
   for (const p of projectSitemapPaths(d)) paths.add(p);
+  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && String(f.q || "").trim() && String(f.a || "").trim())) paths.add("/faqs");
   for (const f of d.slides || []) if ((f.lk || "page") === "page" && f.slug) paths.add("/featured/" + f.slug);
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
