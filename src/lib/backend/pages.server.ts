@@ -91,11 +91,30 @@ function pageMeta(d: Json, path: string, origin: string): Meta {
   return def;
 }
 
+// FAQ answers are rich text (HTML) or old plain text: reduce either to readable text.
+const faqText = (v: unknown): string => {
+  let s = String(v ?? "");
+  if (/^\s*<(p|h[1-6]|ul|ol|div|blockquote|table|hr)[\s>/]/i.test(s)) {
+    s = s
+      .replace(/<\/(p|h[1-6]|li|div|blockquote|tr)>|<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
+  } else {
+    s = s.replace(/\*\*/g, "");
+  }
+  return s.replace(/[ \t]+\n/g, "\n").replace(/\n{2,}/g, "\n").trim();
+};
+
 // FAQ page: tells Google about every published question (schema.org FAQPage).
 function faqJsonLd(d: Json): string {
   const ok = new Set((d.faqCats || []).filter((c: Json) => c && c.pub !== false).map((c: Json) => String(c.id)));
   const items = (d.faqs || []).filter(
-    (f: Json) => f && f.pub !== false && ok.has(String(f.cat)) && String(f.q || "").trim() && String(f.a || "").trim(),
+    (f: Json) => f && f.pub !== false && ok.has(String(f.cat)) && String(f.q || "").trim() && faqText(f.a),
   );
   if (!items.length) return "";
   const ld = {
@@ -104,7 +123,7 @@ function faqJsonLd(d: Json): string {
     mainEntity: items.map((f: Json) => ({
       "@type": "Question",
       name: String(f.q).trim(),
-      acceptedAnswer: { "@type": "Answer", text: String(f.a).replace(/\*\*/g, "").trim() },
+      acceptedAnswer: { "@type": "Answer", text: faqText(f.a) },
     })),
   };
   return JSON.stringify(ld).replace(/</g, "\\u003c");
@@ -199,7 +218,7 @@ export async function renderSitemap(request: Request): Promise<Response> {
   for (const a of d.arts || []) if (a.pub && a.slug) paths.add("/newsflash/" + a.slug);
   for (const v of d.vids || []) if (v.pub && v.slug) paths.add("/videos/" + v.slug);
   for (const p of projectSitemapPaths(d)) paths.add(p);
-  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && String(f.q || "").trim() && String(f.a || "").trim())) paths.add("/faqs");
+  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && String(f.q || "").trim() && faqText(f.a))) paths.add("/faqs");
   for (const f of d.slides || []) if ((f.lk || "page") === "page" && f.slug) paths.add("/featured/" + f.slug);
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +

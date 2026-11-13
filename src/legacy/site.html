@@ -304,6 +304,13 @@ pre.code{margin:0;background:var(--surface);border:1px solid var(--line);border-
 .fqa{padding:14px 16px;line-height:1.7;font-size:14px;overflow-wrap:anywhere}
 .fqa p{margin:0 0 10px}.fqa ul{margin:0 0 10px;padding-left:20px}.fqa>:last-child{margin-bottom:0}
 .fqe{padding:18px;color:var(--muted)}
+.fqa h2{font-size:18px;margin:12px 0 6px}.fqa h3{font-size:16px;margin:10px 0 6px}
+.fqa blockquote{margin:8px 0;padding:4px 12px;border-left:3px solid var(--acc);color:var(--muted)}
+.fqa a{color:var(--acc)}.fqa ol{margin:0 0 10px;padding-left:22px}.fqa table{display:block;max-width:100%;overflow-x:auto}
+.gf figcaption .gx{font-size:12.5px;line-height:1.45}
+.lb.glb .glc .gdesc{max-height:30vh;overflow:auto;text-align:left;font-size:13px;line-height:1.55;margin:6px auto 0;max-width:640px;width:100%;padding:0 4px;-webkit-overflow-scrolling:touch}
+.lb.glb .glc .gdesc>*{margin:0 0 6px;color:#fff}.lb.glb .glc .gdesc a{color:#fff;text-decoration:underline}
+.lb.glb .glc .gdesc ul,.lb.glb .glc .gdesc ol{padding-left:20px}
 #wa .wa{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:45;width:58px;height:58px;border-radius:50%;background:#25D366;display:grid;place-items:center;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);animation:wapulse 2.2s infinite}
 #wa .wa.r{right:16px}#wa .wa.l{left:16px}
 #wa .wa.up{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
@@ -1401,7 +1408,7 @@ function watchHTML(v){
 const galCats=()=>[...new Set(pubGal().map(g=>String(g.cat||'').trim()).filter(Boolean))];
 function galList(){const all=pubGal(),sel=String(S.ui.gcat||'').trim();return sel&&galCats().includes(sel)?all.filter(g=>String(g.cat||'').trim()===sel):all}
 /* ---------- FAQs (public page) ---------- */
-const pubFaqs=()=>{const ids=new Set(S.faqCats.filter(c=>c.pub).map(c=>c.id));return S.faqs.filter(f=>f.pub&&f.q.trim()&&f.a.trim()&&ids.has(f.cat))};
+const pubFaqs=()=>{const ids=new Set(S.faqCats.filter(c=>c.pub).map(c=>c.id));return S.faqs.filter(f=>f.pub&&f.q.trim()&&plain(f.a).trim()&&ids.has(f.cat))};
 /* answer text: blank line = new paragraph, lines starting with "- " = list, **bold** */
 function faqFmt(s){
   const out=[],inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');let ul=null,pp=[];
@@ -1416,8 +1423,8 @@ function faqPillsHTML(){
 }
 function faqListHTML(){
   const t=String(S.ui.fqq||'').trim().toLowerCase(),all=pubFaqs(),cn=id=>(S.faqCats.find(c=>c.id===id)||{}).name||'';
-  const items=t?all.filter(f=>(f.q+' '+f.a).toLowerCase().includes(t)):all.filter(f=>f.cat===S.ui.fqcat);
-  return items.length?items.map(f=>`<details class="fq"><summary><span>${esc(f.q)}</span>${t?`<small>${esc(cn(f.cat))}</small>`:''}</summary><div class="fqa">${faqFmt(f.a)}</div></details>`).join(''):`<div class="fqe">${all.length?'No questions found.':'No FAQs have been published yet.'}</div>`;
+  const items=t?all.filter(f=>(f.q+' '+plain(f.a)).toLowerCase().includes(t)):all.filter(f=>f.cat===S.ui.fqcat);
+  return items.length?items.map(f=>`<details class="fq"><summary><span>${esc(f.q)}</span>${t?`<small>${esc(cn(f.cat))}</small>`:''}</summary><div class="fqa">${looksHTML(f.a)?rtBody(f.a):faqFmt(f.a)}</div></details>`).join(''):`<div class="fqe">${all.length?'No questions found.':'No FAQs have been published yet.'}</div>`;
 }
 function faqsHTML(){
   const pills=faqPillsHTML();
@@ -1441,7 +1448,7 @@ function galleryHTML(){
   const all=pubGal(),cats=galCats(),sel=cats.includes(S.ui.gcat)?S.ui.gcat:'',list=galList();
   return `<section><div class="sech"><div><h1 style="font-size:34px">Photo gallery</h1><p class="sub">Photos from ${esc(S.title)}. Click a photo to enlarge it.</p></div><span class="tag">/gallery</span></div>
   ${cats.length?`<div class="gfil" role="group" aria-label="Filter photos"><button data-act="gcat" data-c="" aria-pressed="${!sel}">All (${all.length})</button>${cats.map(c=>`<button data-act="gcat" data-c="${esc(c)}" aria-pressed="${c===sel}">${esc(c)}</button>`).join('')}</div>`:''}
-  <div class="gg">${list.map((g,j)=>`<figure class="gf"><button class="gi2" data-act="glb" data-i="${j}" aria-label="Enlarge${g.t?': '+esc(g.t):' photo '+(j+1)}"><img src="${esc(g.img)}" alt="${esc(g.alt||g.t||S.title+' photo '+(j+1))}" ${P().lazyImg?'loading="lazy" decoding="async"':''}></button>${g.t||g.cap?`<figcaption>${g.t?`<b>${esc(g.t)}</b>`:''}${g.cap?`<span>${esc(g.cap)}</span>`:''}</figcaption>`:''}</figure>`).join('')||'<p class="sub">No photos yet.</p>'}</div></section>`;
+  <div class="gg">${list.map((g,j)=>`<figure class="gf"><button class="gi2" data-act="glb" data-i="${j}" aria-label="Enlarge${g.t?': '+esc(g.t):' photo '+(j+1)}"><img src="${esc(g.img)}" alt="${esc(g.alt||g.t||S.title+' photo '+(j+1))}" ${P().lazyImg?'loading="lazy" decoding="async"':''}></button>${g.t||g.cap||plain(g.desc||'').trim()?`<figcaption>${g.t?`<b>${esc(g.t)}</b>`:''}${g.cap?`<span>${esc(g.cap)}</span>`:''}${plain(g.desc||'').trim()?`<span class="gx">${esc(plain(g.desc).slice(0,120))}${plain(g.desc).length>120?'\u2026':''}</span>`:''}</figcaption>`:''}</figure>`).join('')||'<p class="sub">No photos yet.</p>'}</div></section>`;
 }
 function openGalLB(i){openLB(galList(),i)}
 /* full-screen photo viewer: arrows (or click the left/right half of the photo), keyboard arrows, swipe on phones */
@@ -1450,7 +1457,7 @@ function openLB(list,i){
   const d=document.createElement('div');d.className='lb glb';d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-label','Photo gallery');
   d.innerHTML='<img alt=""><div class="glc"></div><button class="lbx" aria-label="Close">&times;</button>'+(list.length>1?'<button class="lbn lbp" aria-label="Previous photo">&#8249;</button><button class="lbn lbf" aria-label="Next photo">&#8250;</button>':'');
   const im=d.querySelector('img'),cp=d.querySelector('.glc');
-  const show=()=>{const g=list[k];im.src=g.img;im.alt=g.alt||g.t||'';cp.innerHTML=(g.t?'<b>'+esc(g.t)+'</b>':'')+(g.cap?'<span>'+esc(g.cap)+'</span>':'')+(list.length>1?'<em>'+(k+1)+' of '+list.length+'</em>':'');if(list.length>1){[k+1,k-1].forEach(n=>{const q=new Image();q.src=list[(n+list.length)%list.length].img})}};
+  const show=()=>{const g=list[k];im.src=g.img;im.alt=g.alt||g.t||'';cp.innerHTML=(g.t?'<b>'+esc(g.t)+'</b>':'')+(g.cap?'<span>'+esc(g.cap)+'</span>':'')+(plain(g.desc||'').trim()?'<div class="gdesc">'+rtBody(g.desc)+'</div>':'')+(list.length>1?'<em>'+(k+1)+' of '+list.length+'</em>':'');if(list.length>1){[k+1,k-1].forEach(n=>{const q=new Image();q.src=list[(n+list.length)%list.length].img})}};
   const half=e=>{const b=im.getBoundingClientRect();return e.clientX<b.left+b.width/2?-1:1};
   if(list.length>1){im.addEventListener('mousemove',e=>{im.style.cursor=half(e)<0?'w-resize':'e-resize'});im.addEventListener('click',e=>{e.stopPropagation();step(half(e))})}
   const step=n=>{k=(k+n+list.length)%list.length;show()};
@@ -1985,14 +1992,14 @@ function secFaqs(){
   const ci=cats.findIndex(c=>c.id===S.ui.fqac),c=cats[ci],rows=[];
   S.faqs.forEach((f,i)=>{if(f.cat===S.ui.fqac)rows.push(i)});
   const cnt=id=>S.faqs.filter(f=>f.cat===id).length;
-  return `<h2>FAQs</h2><p class="sub">Questions and answers shown on your website at <b>/faqs</b> and described to Google as an FAQ page. Pick a category, add questions and tick Published. In an answer, a blank line starts a new paragraph, a line starting with \u201c- \u201d becomes a list item, and **double asterisks** make text bold.</p>
+  return `<h2>FAQs</h2><p class="sub">Questions and answers shown on your website at <b>/faqs</b> and described to Google as an FAQ page. Pick a category, add questions and tick Published. Format each answer with the toolbar (bold, headings, lists, links), or paste text from Word or a web page.</p>
   <div class="cols"><div class="pl">${cats.map((x,j)=>`<button data-act="fqac" data-id="${esc(x.id)}" aria-pressed="${x.id===S.ui.fqac}"><span id="fqcl-${j}">${esc(x.name||'Untitled')}</span><span class="badge">${cnt(x.id)}</span>${x.pub?'':'<span class="badge">HIDDEN</span>'}</button>`).join('')}<button class="btn pri" data-act="fqcadd">Add category</button></div>
   ${c?`<div style="display:flex;flex-direction:column;gap:14px;min-width:0">
    <div class="zbox"><div class="f"><label for="fqcn">Category name</label><input id="fqcn" type="text" data-b="faqCats.${ci}.name" data-live="fqcl-${ci}" value="${esc(c.name)}"></div>
    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqCats.${ci}.pub" data-rr="1" ${c.pub?'checked':''}> Visible on the website</label><button class="btn sm" data-act="fqcup" data-i="${ci}" aria-label="Move category up">&uarr;</button><button class="btn sm" data-act="fqcdn" data-i="${ci}" aria-label="Move category down">&darr;</button><button class="btn sm warn" data-act="fqcdel" data-i="${ci}">Delete category</button></div></div>
    <div><button class="btn pri" data-act="fqadd">Add question</button></div>
    ${rows.length?rows.map((i,n)=>{const f=S.faqs[i];return `<div class="zbox"><div class="f"><label for="fqq${i}">Question ${n+1}</label><input id="fqq${i}" type="text" data-b="faqs.${i}.q" value="${esc(f.q)}"></div>
-    <div class="f"><label for="fqa${i}">Answer</label><textarea id="fqa${i}" data-b="faqs.${i}.a" style="min-height:120px;font-family:var(--font-body);font-size:14px">${esc(f.a)}</textarea></div>
+    ${rtField('fqa'+i,'Answer','faqs.'+i+'.a',f.a,130)}
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqs.${i}.pub" ${f.pub?'checked':''}> Published</label><button class="btn sm" data-act="fqup" data-i="${i}" aria-label="Move question up">&uarr;</button><button class="btn sm" data-act="fqdn" data-i="${i}" aria-label="Move question down">&darr;</button><button class="btn sm warn" data-act="fqdel" data-i="${i}">Delete</button></div></div>`}).join(''):'<p class="sub">No questions in this category yet. Click \u201cAdd question\u201d.</p>'}
   </div>`:'<p class="sub">No categories yet. Click \u201cAdd category\u201d.</p>'}</div>`;
 }
@@ -2023,6 +2030,7 @@ function secGal(){
    <div class="f"><label for="gc${i}">Caption (optional)</label><input id="gc${i}" type="text" data-b="gal.${i}.cap" value="${esc(g.cap||'')}"></div>
    <div class="f"><label for="gk${i}">Category / album (optional, shows filter buttons)</label><input id="gk${i}" type="text" list="galcats" data-b="gal.${i}.cat" value="${esc(g.cat||'')}"></div>
    <div class="f"><label for="ga${i}">Alt text (describes the photo for Google and screen readers)</label><input id="ga${i}" type="text" data-b="gal.${i}.alt" value="${esc(g.alt||'')}"></div>
+   ${rtField('gd'+i,'Description (optional, shown with the photo)','gal.'+i+'.desc',g.desc||'',110)}
    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between"><label class="chk"><input type="checkbox" data-b="gal.${i}.pub" data-rr="1" ${g.pub?'checked':''}> Published</label><span><button class="btn sm" data-act="gl" data-i="${i}" aria-label="Move earlier">&larr;</button> <button class="btn sm" data-act="gr" data-i="${i}" aria-label="Move later">&rarr;</button> <button class="btn sm warn" data-act="gdel" data-i="${i}">Delete</button></span></div></div>`).join('')}</div>`:'<p class="sub">No photos yet. Upload some above.</p>'}`;
 }
 /* resize to fit inside max x max, keeping the shape; returns a data URL (rejects on unreadable files) */
