@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 // Every other address: photo/video files (/media/...), uploaded tool ZIP files (/_tool/...),
-// the sitemap, and otherwise the website itself (it reads the address and shows the right page).
+// the sitemap and robots.txt, and otherwise the website itself (it reads the address and shows the right page).
 async function handle(request: Request): Promise<Response> {
   const path = new URL(request.url).pathname;
   if (path.startsWith("/media/")) {
@@ -17,6 +17,10 @@ async function handle(request: Request): Promise<Response> {
   if (path.startsWith("/_tool/")) {
     const { serveTool } = await import("@/lib/backend/tools.server");
     return serveTool(request, path.slice(7));
+  }
+  if (path === "/robots.txt") {
+    const { renderRobots } = await import("@/lib/backend/pages.server");
+    return renderRobots(request);
   }
   if (path === "/sitemap.xml") {
     const { renderSitemap } = await import("@/lib/backend/pages.server");

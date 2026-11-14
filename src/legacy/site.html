@@ -63,6 +63,7 @@ button{font-family:inherit}
 .hd{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line);position:relative;flex-wrap:wrap}
 .lg{display:flex;align-items:center;gap:10px;background:none;border:0;color:var(--fg);font:700 20px var(--font-display);cursor:pointer;padding:0}
 .pzip{width:100%}.pzip iframe{width:100%;height:calc(100vh - 140px);min-height:560px;border:0;display:block;background:#fff}
+a.lg{text-decoration:none}
 .lg i.li{background:none;overflow:hidden;border-radius:50%}.lg i.li img{width:100%;height:100%;object-fit:cover;display:block}
 .lg i{width:32px;height:32px;border-radius:8px;background:var(--acc);color:var(--acc-fg);display:grid;place-items:center;font-style:normal;font-size:16px}
 .nv{display:flex;gap:2px;align-items:center;margin-left:auto}
@@ -173,6 +174,7 @@ a.nc{text-decoration:none}
 .pills button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--acc-fg)}
 .crumb{font-size:13px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap}
 .crumb button{background:none;border:0;color:var(--acc);padding:0;cursor:pointer;font:inherit;text-decoration:underline}
+.crumb a{color:var(--acc);cursor:pointer;font:inherit;text-decoration:underline}
 .src{border:1px solid var(--line);border-left:4px solid var(--acc);background:var(--surface);border-radius:8px;padding:12px 14px;font-size:14px}
 .src a{color:var(--acc)}
 .src small{display:block;color:var(--muted);margin-top:6px;font-size:12px}
@@ -407,7 +409,7 @@ a.nb{text-decoration:none;display:inline-block}
 .pdd .dm:before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px}
 .pjh{background:var(--fg);color:var(--bg);border-radius:12px;padding:22px 26px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .pjh h1{margin:0;font:600 clamp(24px,4vw,34px)/1.15 var(--font-display)}
-.pjh .crumb,.pjh .crumb button{color:inherit;opacity:.85}
+.pjh .crumb,.pjh .crumb button,.pjh .crumb a{color:inherit;opacity:.85}
 .pjl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:22px}
 .pjc{display:flex;flex-direction:column;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 18px 22px;text-decoration:none;color:var(--fg);box-shadow:0 2px 8px rgba(0,0,0,.06);transition:transform .2s,box-shadow .2s,border-color .2s;min-width:0}
 .pjc:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(0,0,0,.12);border-color:var(--acc)}
@@ -906,6 +908,8 @@ const artOf=r=>S.arts.find(a=>'a:'+a.slug===r);
 const pathOf=r=>{const a=artOf(r);if(a)return '/newsflash/'+a.slug;const pj=projOf(r);if(pj)return projPath(pj);const vv=vidOf(r);if(vv)return '/videos/'+vv.slug;const ff=fOf(r);if(ff)return '/featured/'+ff.slug;const fq=faqOf(r);if(fq)return '/faqs/'+fq.slug;if(r.startsWith('t:')){const b=S.boxes[+r.slice(2)];return '/tools/'+(b?slug(b.title).replace(/-+$/,''):'')}return (routes().find(x=>x.r===r)||{p:'/'}).p};
 /* ---------- real page addresses: /, /newsflash, /tools/<tool>, /tools/<tool>/<tab>, /admin ---------- */
 function urlFor(r,sub){let p=pathOf(r);if(sub&&r.startsWith('t:'))p+='/'+sub;return p}
+/* real link target for a route (external link-pages keep their own address) so every menu item is a crawlable <a href> */
+function hrefFor(r){if(String(r).startsWith('p:')){const q=S.pages.find(x=>'p:'+x.slug===r);if(q&&q.kind==='link'&&q.pub&&extHref(q.url))return extHref(q.url)}return pathOf(r)}
 function parsePath(){
   const p=decodeURIComponent(location.pathname).replace(/\/+$/,'')||'/';let m;
   if(p==='/admin')return {view:'admin'};
@@ -1397,10 +1401,10 @@ function headerHTML(){
   /* Projects menu item: opens a list of the project categories */
   const pcats=S.projCats||[];
   const projDD=n=>`<div class="dd pdd"><button class="nb" data-act="dd" aria-haspopup="true" aria-expanded="false"${cur('projects')}>${esc(n.label)} &#9662;</button><div class="dm" hidden><a class="nb" href="/projects" data-act="go" data-r="projects"${S.route==='projects'?' aria-current="page"':''}>All projects</a>${pcats.map(c=>`<a class="nb" href="/projects/${esc(c.slug)}" data-act="go" data-r="pc:${esc(c.slug)}"${S.route==='pc:'+c.slug||(projOf(S.route)||{}).cat===c.id?' aria-current="page"':''}>${esc(c.name)}</a>`).join('')}</div></div>`;
-  const items=top.map(n=>n.route==='projects'?projDD(n):`<button class="nb" data-act="go" data-r="${esc(n.route)}"${cur(n.route)}>${esc(n.label)}</button>`);
-  if(dd.length)items.push(`<div class="dd"><button class="nb" data-act="dd" aria-haspopup="true" aria-expanded="false">More &#9662;</button><div class="dm" hidden>${dd.map(n=>`<button class="nb" data-act="go" data-r="${esc(n.route)}"${cur(n.route)}>${esc(n.label)}</button>`).join('')}</div></div>`);
+  const items=top.map(n=>n.route==='projects'?projDD(n):`<a class="nb" href="${esc(hrefFor(n.route))}" data-act="go" data-r="${esc(n.route)}"${cur(n.route)}>${esc(n.label)}</a>`);
+  if(dd.length)items.push(`<div class="dd"><button class="nb" data-act="dd" aria-haspopup="true" aria-expanded="false">More &#9662;</button><div class="dm" hidden>${dd.map(n=>`<a class="nb" href="${esc(hrefFor(n.route))}" data-act="go" data-r="${esc(n.route)}"${cur(n.route)}>${esc(n.label)}</a>`).join('')}</div></div>`);
   const notes=S.notes.length?S.notes.slice().reverse().map(n=>`<p>${esc(n.t)}<time>${esc(n.at)}</time></p>`).join(''):'<p>No announcements yet. Send one from Admin, then open this bell.</p>';
-  return `<header class="hd"><button class="lg" data-act="go" data-r="home" aria-label="${esc(S.title)} home">${logoMark()}${esc(S.title)}</button>
+  return `<header class="hd"><a class="lg" href="/" data-act="go" data-r="home" aria-label="${esc(S.title)} home">${logoMark()}${esc(S.title)}</a>
   <button class="btn burger" data-act="burger" aria-label="Menu">Menu</button>
   <nav class="nv" id="nv" aria-label="Main">${items.join('')}</nav>
   <div class="bellw"><button class="bell" data-act="bell" aria-label="Notifications" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 004 0"/></svg>${S.unread?`<sup>${S.unread}</sup>`:''}</button><div class="np" hidden><h4>Notification center</h4>${notes}</div></div></header>`;
@@ -1420,9 +1424,9 @@ function homeHTML(){
   const tools=S.boxes.map((b,i)=>{const L=!S.inline;return `<div class="tool"><div class="flip"${L?` data-act="newtab" data-r="t:${i}" role="link" tabindex="0" aria-label="Open ${esc(b.title)} in a new tab"`:''}><div class="fi"><div class="ff"><h3 data-i="${i}" ${S.inline?'contenteditable="true" spellcheck="false" title="Edit title"':''}>${esc(b.title)}</h3></div><div class="fb" aria-hidden="true"><b>OPEN</b><span>&#8599;</span></div></div></div></div>`}).join('');
   const latest=pubArts().filter(a=>a.home).slice(0,6),homeVids=pubVids().slice(0,3);
   return hero+`<section><div class="sech"><h2>Property tools</h2></div><div class="tools">${tools}</div></section>
-  ${latest.length?`<section><div class="sech"><div><h2>Latest Newsflash</h2><p class="sub">Notices and updates, each with its own article page.</p></div><button class="btn" data-act="go" data-r="news">All Newsflash</button></div><div class="nl">${latest.map(cardHTML).join('')}</div></section>`:''}
-  ${homeVids.length?`<section><div class="sech"><div><h2>Latest videos</h2><p class="sub">Watch our official videos right here on the site.</p></div><button class="btn" data-act="go" data-r="videos">All videos</button></div><div class="nl">${homeVids.map(vcardHTML).join('')}</div></section>`:''}
-  ${pubGal().length?`<section><div class="sech"><div><h2>Photo gallery</h2><p class="sub">Recent photos from our work.</p></div><button class="btn" data-act="go" data-r="gallery">All photos</button></div><div class="gg">${pubGal().slice(0,4).map(g=>`<figure class="gf"><button class="gi2" data-act="go" data-r="gallery" aria-label="Open the gallery"><img src="${esc(g.img)}" alt="${esc(g.alt||g.t||S.title+' photo')}" ${P().lazyImg?'loading="lazy" decoding="async"':''}></button></figure>`).join('')}</div></section>`:''}`;
+  ${latest.length?`<section><div class="sech"><div><h2>Latest Newsflash</h2><p class="sub">Notices and updates, each with its own article page.</p></div><a class="btn" href="/newsflash" data-act="go" data-r="news">All Newsflash</a></div><div class="nl">${latest.map(cardHTML).join('')}</div></section>`:''}
+  ${homeVids.length?`<section><div class="sech"><div><h2>Latest videos</h2><p class="sub">Watch our official videos right here on the site.</p></div><a class="btn" href="/videos" data-act="go" data-r="videos">All videos</a></div><div class="nl">${homeVids.map(vcardHTML).join('')}</div></section>`:''}
+  ${pubGal().length?`<section><div class="sech"><div><h2>Photo gallery</h2><p class="sub">Recent photos from our work.</p></div><a class="btn" href="/gallery" data-act="go" data-r="gallery">All photos</a></div><div class="gg">${pubGal().slice(0,4).map(g=>`<figure class="gf"><a class="gi2" href="/gallery" data-act="go" data-r="gallery" aria-label="Open the gallery"><img src="${esc(g.img)}" alt="${esc(g.alt||g.t||S.title+' photo')}" ${P().lazyImg?'loading="lazy" decoding="async"':''}></a></figure>`).join('')}</div></section>`:''}`;
 }
 function newsHTML(){
   const years=['All',...[...new Set(pubArts().map(a=>a.year))].sort().reverse()];
@@ -1434,7 +1438,7 @@ function newsHTML(){
 function artHTML(a){
   if(!a||!a.pub)return '<div class="art"><h1>Article not found</h1><p>This article is unpublished or was deleted.</p></div>';
   const rel=pubArts().filter(x=>x!==a&&x.cat===a.cat).slice(0,3);
-  return `<article class="art"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / <button data-act="go" data-r="news">Newsflash</button> / <span>${esc(a.cat)}</span></nav>
+  return `<article class="art"><nav class="crumb" aria-label="Breadcrumb"><a href="/" data-act="go" data-r="home">Home</a> / <a href="/newsflash" data-act="go" data-r="news">Newsflash</a> / <span>${esc(a.cat)}</span></nav>
   ${a.img?`<img class="aimg" src="${esc(a.img)}" alt="${esc(a.title)}">`:''}<div class="meta"><span class="chip">${esc(a.cat)}</span>${esc(a.date||a.year)}</div><h1>${esc(a.title)}</h1>
   ${rtBody(a.body)}
   ${(a.imgs||[]).filter(Boolean).length?`<div class="gal" aria-label="More photos">${(a.imgs||[]).filter(Boolean).map((u,j)=>`<button class="gi" data-act="lb" data-u="${esc(u)}" aria-label="Enlarge photo ${j+2}"><img src="${esc(u)}" alt="${esc(a.title)} photo ${j+2}" loading="lazy" decoding="async"></button>`).join('')}</div>`:''}
@@ -1456,7 +1460,7 @@ function watchHTML(v){
   const y=v&&v.pub?vidParse(v.url):null;
   if(!y)return '<div class="art"><h1>Video not found</h1><p>This video is unpublished or was deleted.</p></div>';
   const rel=pubVids().filter(x=>x!==v).slice(0,3),L=vidLabel(y);
-  return `<article class="art" style="max-width:900px"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / <button data-act="go" data-r="videos">Videos</button> / <span>${esc(v.title)}</span></nav>
+  return `<article class="art" style="max-width:900px"><nav class="crumb" aria-label="Breadcrumb"><a href="/" data-act="go" data-r="home">Home</a> / <a href="/videos" data-act="go" data-r="videos">Videos</a> / <span>${esc(v.title)}</span></nav>
   ${playerHTML(v,y)}
   <div class="meta">${esc(v.date||'')}</div><h1>${esc(v.title)}</h1>
   ${(v.desc||'').split(/\n\s*\n/).filter(x=>x.trim()).map(x=>`<p>${esc(x).replace(/\n/g,'<br>')}</p>`).join('')}
@@ -1497,7 +1501,7 @@ function faqsHTML(){
 }
 function faqPageHTML(f){
   const cn=(S.faqCats.find(c=>c.id===f.cat)||{}).name||'';
-  return `<article class="art" style="max-width:860px"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / <button data-act="go" data-r="faqs">FAQs</button> / <span>${esc(f.q)}</span></nav><h1>${esc(f.q)}</h1>${cn?`<div class="meta">${esc(cn)}</div>`:''}<div class="fqa" style="padding:0">${looksHTML(f.a)?rtBody(f.a):faqFmt(f.a)}</div><p><button class="btn" data-act="go" data-r="faqs">More FAQs</button></p></article>`;
+  return `<article class="art" style="max-width:860px"><nav class="crumb" aria-label="Breadcrumb"><a href="/" data-act="go" data-r="home">Home</a> / <a href="/faqs" data-act="go" data-r="faqs">FAQs</a> / <span>${esc(f.q)}</span></nav><h1>${esc(f.q)}</h1>${cn?`<div class="meta">${esc(cn)}</div>`:''}<div class="fqa" style="padding:0">${looksHTML(f.a)?rtBody(f.a):faqFmt(f.a)}</div><p><a class="btn" href="/faqs" data-act="go" data-r="faqs">More FAQs</a></p></article>`;
 }
 function faqRefresh(){const c=$('#fqc'),l=$('#fql');if(c)c.innerHTML=faqPillsHTML();if(l)l.innerHTML=faqListHTML()}
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='fqs'){S.ui.fqq=e.target.value;faqRefresh()}});
@@ -1547,7 +1551,7 @@ function projCatCardHTML(k,j){
 /* /projects shows the category cards (Step 1); /projects/<category> shows that category's sub-project cards (Step 2) */
 function projListHTML(c){
   const all=pubProjs(),cats=S.projCats||[],cnt=id=>all.filter(x=>x.cat===id).length;
-  const empty=t=>`<div class="pjempty"><span aria-hidden="true">&#9638;</span><b>${esc(t)}</b><p>We are adding photos and details. Please check back soon.</p>${c?'<button class="btn" data-act="go" data-r="projects">See all projects</button>':''}</div>`;
+  const empty=t=>`<div class="pjempty"><span aria-hidden="true">&#9638;</span><b>${esc(t)}</b><p>We are adding photos and details. Please check back soon.</p>${c?'<a class="btn" href="/projects" data-act="go" data-r="projects">See all projects</a>':''}</div>`;
   const grid=l=>`<div class="pjl">${l.map(projCardHTML).join('')}</div>`;
   let body;
   if(c){const l=all.filter(x=>x.cat===c.id);body=l.length?grid(l):empty(c.name+' coming soon')}
@@ -1558,7 +1562,7 @@ function projListHTML(c){
   }
   const n=c?cnt(c.id):cats.length;
   const cnt2=c?(n?`${n} project${n===1?'':'s'}`:''):(n?`${n} categor${n===1?'y':'ies'}`:'');
-  return `<div class="pjh"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / ${c?`<button data-act="go" data-r="projects">Projects</button> / <span>${esc(c.name)}</span>`:'<span>Projects</span>'}</nav><h1>${esc(c?c.name:'Projects')}</h1>${c&&String(c.sum||'').trim()?`<p class="pjdesc">${esc(c.sum)}</p>`:''}${cnt2?`<p class="pjcount">${cnt2}</p>`:''}</div>
+  return `<div class="pjh"><nav class="crumb" aria-label="Breadcrumb"><a href="/" data-act="go" data-r="home">Home</a> / ${c?`<a href="/projects" data-act="go" data-r="projects">Projects</a> / <span>${esc(c.name)}</span>`:'<span>Projects</span>'}</nav><h1>${esc(c?c.name:'Projects')}</h1>${c&&String(c.sum||'').trim()?`<p class="pjdesc">${esc(c.sum)}</p>`:''}${cnt2?`<p class="pjcount">${cnt2}</p>`:''}</div>
   ${c&&cats.length>1?`<div class="gfil pjfil" role="group" aria-label="Project categories"><a href="/projects" data-act="go" data-r="projects" aria-pressed="false">All categories</a>${cats.map(k=>`<a href="/projects/${esc(k.slug)}" data-act="go" data-r="pc:${esc(k.slug)}" aria-pressed="${c.id===k.id}">${esc(k.name)}</a>`).join('')}</div>`:''}
   ${body}`;
 }
@@ -1575,7 +1579,7 @@ function projHTML(x){
   const notes=facts.filter(f=>!f[0]).map(f=>f[1]);
   const pb=(y,fw)=>y?`<a class="btn sm" href="${esc(projPath(y))}" data-act="go" data-r="pj:${esc(y.slug)}" aria-label="${fw?'Next':'Previous'} project: ${esc(y.title)}">${fw?'Next &rarr;':'&larr; Previous'}</a>`:`<span class="btn sm" aria-disabled="true">${fw?'Next &rarr;':'&larr; Previous'}</span>`;
   const pn=`<span class="pjpn">${pb(prev,0)}${pb(next,1)}</span>`;
-  return `<div class="pjh"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / <button data-act="go" data-r="projects">Projects</button>${c?` / <button data-act="go" data-r="pc:${esc(c.slug)}">${esc(c.name)}</button>`:''}</nav><h1>${esc(x.title)}</h1>${x.pub?'':'<span class="chip">Draft: only you can see this page</span>'}</div>
+  return `<div class="pjh"><nav class="crumb" aria-label="Breadcrumb"><a href="/" data-act="go" data-r="home">Home</a> / <a href="/projects" data-act="go" data-r="projects">Projects</a>${c?` / <a href="/projects/${esc(c.slug)}" data-act="go" data-r="pc:${esc(c.slug)}">${esc(c.name)}</a>`:''}</nav><h1>${esc(x.title)}</h1>${x.pub?'':'<span class="chip">Draft: only you can see this page</span>'}</div>
   <div class="pjbar">${back}${pn}</div>
   <article class="pjd">
    ${n?`<div class="pjg">${ph.map((u,j)=>`<button class="pjgi" style="--d:${Math.min(j,12)}" data-act="pjlb" data-j="${j}" aria-label="Open photo ${j+1} of ${n}"><img src="${esc(u)}" alt="${esc(x.title)} photo ${j+1}" ${j>5&&P().lazyImg?'loading="lazy" decoding="async"':''}></button>`).join('')}</div>${n>1?`<p class="note pjhint">Click any photo to view it large. Use the arrows, your keyboard or swipe to move between ${n} photos.</p>`:''}`:'<p class="sub">Photos coming soon.</p>'}
@@ -1585,16 +1589,16 @@ function projHTML(x){
    </section>
    <div class="pjbar pjbot">${back}${pn}</div>
   </article>
-  ${more.length?`<section><div class="sech"><h2>More ${esc(c?c.name:'projects')}</h2>${c?`<button class="btn" data-act="go" data-r="pc:${esc(c.slug)}">View all</button>`:''}</div><div class="pjl">${more.map(projCardHTML).join('')}</div></section>`:''}`;
+  ${more.length?`<section><div class="sech"><h2>More ${esc(c?c.name:'projects')}</h2>${c?`<a class="btn" href="/projects/${esc(c.slug)}" data-act="go" data-r="pc:${esc(c.slug)}">View all</a>`:''}</div><div class="pjl">${more.map(projCardHTML).join('')}</div></section>`:''}`;
 }
 /* page opened by clicking a hero picture: the picture, headline, subline and optional text */
 function featHTML(x){
   if(!x)return '<div class="art"><h1>Page not found</h1><p>This page was removed.</p></div>';
   const media=x.vid?`<video class="aimg" src="${esc(x.vid)}" poster="${esc(slideURL(x))}" controls playsinline preload="metadata"></video>`:`<img class="aimg" src="${esc(slideURL(x))}" alt="${esc(x.t)}" fetchpriority="high" decoding="async">`;
-  return `<article class="art" style="max-width:900px"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / <span>${esc(x.t)}</span></nav>
+  return `<article class="art" style="max-width:900px"><nav class="crumb" aria-label="Breadcrumb"><a href="/" data-act="go" data-r="home">Home</a> / <span>${esc(x.t)}</span></nav>
   ${media}<h1>${esc(x.t)}</h1>${x.s?`<p class="sub" style="max-width:none;font-size:17px">${esc(x.s)}</p>`:''}
   ${rtBody(x.body)}
-  <div><button class="btn" data-act="go" data-r="home">&#8592; Back to home</button></div></article>`;
+  <div><a class="btn" href="/" data-act="go" data-r="home">&#8592; Back to home</a></div></article>`;
 }
 /* stable key for a document (used by the editor window to find it again) */
 function h32(t){let h=2166136261;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
@@ -1623,7 +1627,7 @@ function footerHTML(){
 function toolHTML(i){
   const b=S.boxes[i];if(!b)return '';
   const dis=b.dis===undefined?DEFAULT_DIS:b.dis,zAdmin=!!(b.zip&&S.sub==='admin');
-  return `<div class="tfull" role="dialog" aria-label="${esc(b.title)}"><div class="tfbar"><button class="btn" data-act="go" data-r="home">&#8592; Back</button><h1>${esc(b.title)}</h1><div class="tmore">${S.boxes.map((x,j)=>j===i?'':`<button class="btn sm" data-act="go" data-r="t:${j}">${esc(x.title)}</button>`).join('')}</div></div>${zAdmin&&!S.admin?'<div style="padding:24px 12px">'+loginHTML()+'</div>':`<iframe data-i="${i}"${zAdmin?' data-adm="1"':''} sandbox="allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox" title="${esc(b.title)}"></iframe>`}${S.sub==='admin'?'<p class="tdis" style="opacity:.6;text-align:center">Site build: forms-fix-1</p>':''}${dis?`<p class="tdis"><b>Disclaimer:</b> ${esc(dis)}</p>`:''}</div>`;
+  return `<div class="tfull" role="dialog" aria-label="${esc(b.title)}"><div class="tfbar"><a class="btn" href="/" data-act="go" data-r="home">&#8592; Back</a><h1>${esc(b.title)}</h1><div class="tmore">${S.boxes.map((x,j)=>j===i?'':`<a class="btn sm" href="${esc(pathOf('t:'+j))}" data-act="go" data-r="t:${j}">${esc(x.title)}</a>`).join('')}</div></div>${zAdmin&&!S.admin?'<div style="padding:24px 12px">'+loginHTML()+'</div>':`<iframe data-i="${i}"${zAdmin?' data-adm="1"':''} sandbox="allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox" title="${esc(b.title)}"></iframe>`}${S.sub==='admin'?'<p class="tdis" style="opacity:.6;text-align:center">Site build: forms-fix-1</p>':''}${dis?`<p class="tdis"><b>Disclaimer:</b> ${esc(dis)}</p>`:''}</div>`;
 }
 function siteHTML(){
   if(S.route.startsWith('t:')&&!S.boxes[+S.route.slice(2)])S.route='home';
@@ -2775,7 +2779,7 @@ async function tmAdd(){
 function renderCookie(){
   const c=LS.get('cc');
   try{renderWA(S.view==='site'&&!c)}catch(_){}
-  $('#cookie').innerHTML=(S.view==='site'&&!c)?`<div class="ck" role="dialog" aria-label="Cookie consent"><p>We use cookies for analytics and Google AdSense ads. Read our <a data-act="go" data-r="p:privacy-policy">Privacy Policy</a>.</p><div style="display:flex;gap:8px"><button class="btn" data-act="cc" data-v="declined">Decline</button><button class="btn pri" data-act="cc" data-v="accepted">Accept</button></div></div>`:'';
+  $('#cookie').innerHTML=(S.view==='site'&&!c)?`<div class="ck" role="dialog" aria-label="Cookie consent"><p>We use cookies for analytics and Google AdSense ads. Read our <a href="/privacy-policy" data-act="go" data-r="p:privacy-policy">Privacy Policy</a>.</p><div style="display:flex;gap:8px"><button class="btn" data-act="cc" data-v="declined">Decline</button><button class="btn pri" data-act="cc" data-v="accepted">Accept</button></div></div>`:'';
 }
 /* "Last updated: [date]" in the legal pages fills itself with the date of the last save (or today if never saved). */
 function autoLegalDates(){

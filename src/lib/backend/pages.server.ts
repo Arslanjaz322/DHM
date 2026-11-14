@@ -1,7 +1,7 @@
 // Serves the website's single-page app with its published content and search-engine tags
 // already inside the HTML, so visitors and Google see the right page immediately.
 import siteHtml from "@/legacy/site.html?raw";
-import { categoryCover, projectCategories, projectCover, projectSitemapPaths, publishedProjects } from "./projects.server";
+import { categoryCover, projectCategories, projectCover, projectPath, projectSitemapPaths, publishedProjects } from "./projects.server";
 import { readSite } from "./site-data.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- free-form site JSON
@@ -147,13 +147,156 @@ function faqJsonLd(d: Json, only?: string): string {
   return JSON.stringify(ld).replace(/</g, "\\u003c");
 }
 
-function seoHead(d: Json, path: string, origin: string): string {
+const normPath = (p: string): string => p.replace(/\/+$/, "") || "/";
+
+const ldScript = (o: unknown): string => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
+
+/** Only a real calendar date (2026-11-14 or 2026-11-14T10:00:00Z) is passed on; anything else is left out. */
+const isoDate = (v: unknown): string | undefined => {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v ?? "").trim());
+  return m && !Number.isNaN(Date.parse(m[1]!)) ? m[1] : undefined;
+};
+
+const STATIC_PAGES = ["newsflash", "projects", "doc", "videos", "gallery", "faqs"];
+
+/**
+ * True when the address is a page the website really has (it mirrors parsePath() in site.html).
+ * Anything else used to be answered with the home page and a 200 status, which Google counts as a
+ * "soft 404"; unknown addresses now get a real 404 status (the visitor still sees the website).
+ */
+function isKnownPath(d: Json, rawPath: string): boolean {
+  const path = normPath(rawPath);
+  if (path === "/" || path === "/admin" || path.startsWith("/admin/")) return true;
+  const segs = path.split("/").filter(Boolean).map(safeDecode);
+  const [a, b, c] = segs;
+  const n = segs.length;
+  if (n === 1) return STATIC_PAGES.includes(a!) || (d.pages || []).some((x: Json) => x && x.pub && x.slug === a);
+  if (a === "newsflash" && n === 2) return (d.arts || []).some((x: Json) => x && x.pub && x.slug === b);
+  if (a === "projects" && n === 2) return projectCategories(d).some((x) => x.slug === b);
+  if (a === "projects" && n === 3) return publishedProjects(d).some((x: Json) => x.slug === c);
+  if (a === "videos" && n === 2) return (d.vids || []).some((x: Json) => x && x.pub && x.slug === b);
+  if (a === "featured" && n === 2) return (d.slides || []).some((x: Json) => x && x.slug === b);
+  if (a === "faqs" && n === 2) {
+    const ok = new Set((d.faqCats || []).filter((x: Json) => x && x.pub !== false).map((x: Json) => String(x.id)));
+    return (d.faqs || []).some(
+      (f: Json) => f && f.hide === true && f.pub !== false && f.slug === b && ok.has(String(f.cat)) && String(f.q || "").trim() && faqText(f.a),
+    );
+  }
+  if (a === "tools" && (n === 2 || n === 3)) return (d.boxes || []).some((x: Json) => slugify(String(x.title || "")) === b);
+  return false;
+}
+
+/** Brand schema for the home page: tells Google the site's name, logo and address. */
+function siteJsonLd(d: Json, origin: string): string[] {
+  const name = String(d.title || "Maskan Estates");
+  const logo = absImg(d.logoImg, origin) || origin + "/logo.png";
+  const desc = String(d.seo?.desc || "").trim();
+  const orgId = origin + "/#organization";
+  return [
+    ldScript({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": orgId,
+      name,
+      url: origin + "/",
+      logo: { "@type": "ImageObject", url: logo },
+      ...(desc ? { description: desc } : {}),
+    }),
+    ldScript({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": origin + "/#website",
+      name,
+      url: origin + "/",
+      inLanguage: "en",
+      publisher: { "@id": orgId },
+    }),
+  ];
+}
+
+/** Breadcrumb trail (Home > Projects > Category > Project, etc.) so search results can show the page's place in the site. */
+function breadcrumbJsonLd(d: Json, path: string, origin: string): string {
+  const segs = normPath(path).split("/").filter(Boolean).map(safeDecode);
+  const [a, b, c] = segs;
+  const trail: [string, string][] = [["Home", "/"]];
+  if (a === "newsflash" && segs.length === 2) {
+    const art = (d.arts || []).find((x: Json) => x && x.pub && x.slug === b);
+    if (!art) return "";
+    trail.push(["Newsflash", "/newsflash"], [String(art.title), "/newsflash/" + b]);
+  } else if (a === "projects" && segs.length >= 2) {
+    const cat = projectCategories(d).find((x) => x.slug === b);
+    if (!cat) return "";
+    trail.push(["Projects", "/projects"], [cat.name, "/projects/" + cat.slug]);
+    if (segs.length === 3) {
+      const pj = publishedProjects(d).find((x: Json) => x.slug === c);
+      if (!pj) return "";
+      trail.push([String(pj.title), "/projects/" + b + "/" + c]);
+    }
+  } else if (a === "videos" && segs.length === 2) {
+    const v = (d.vids || []).find((x: Json) => x && x.pub && x.slug === b);
+    if (!v) return "";
+    trail.push(["Videos", "/videos"], [String(v.title), "/videos/" + b]);
+  } else if (a === "faqs" && segs.length === 2) {
+    const q = (d.faqs || []).find((x: Json) => x && x.hide === true && x.pub !== false && x.slug === b);
+    if (!q) return "";
+    trail.push(["FAQs", "/faqs"], [String(q.q), "/faqs/" + b]);
+  } else return "";
+  return ldScript({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map(([name, p], i) => ({ "@type": "ListItem", position: i + 1, name, item: origin + encodeURI(p) })),
+  });
+}
+
+/** Newsflash articles: NewsArticle schema (same fields the admin preview shows). */
+function articleJsonLd(d: Json, path: string, origin: string): string {
+  const segs = normPath(path).split("/").filter(Boolean).map(safeDecode);
+  if (segs[0] !== "newsflash" || segs.length !== 2) return "";
+  const a = (d.arts || []).find((x: Json) => x && x.pub && x.slug === segs[1]);
+  if (!a) return "";
+  const img = absImg(a.img, origin) || absImg(d.seo?.og, origin);
+  const published = isoDate(a.date);
+  return ldScript({
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: String(a.title || ""),
+    description: String(a.sum || ""),
+    mainEntityOfPage: origin + "/newsflash/" + encodeURI(segs[1]!),
+    articleSection: String(a.cat || ""),
+    inLanguage: "en-PK",
+    ...(img ? { image: [img] } : {}),
+    ...(published ? { datePublished: published } : {}),
+    publisher: { "@type": "Organization", name: String(d.title || "Maskan Estates"), url: origin + "/" },
+  });
+}
+
+/**
+ * Plain links to the main pages, placed in <noscript>. The website draws its own menu with
+ * JavaScript, so crawlers and link-preview bots that do not run scripts still find every page.
+ */
+function crawlNav(d: Json): string {
+  const links: [string, string][] = [["Home", "/"], ["Newsflash", "/newsflash"], ["Projects", "/projects"]];
+  for (const c of projectCategories(d)) links.push([c.name, "/projects/" + c.slug]);
+  links.push(["Documents", "/doc"]);
+  if ((d.vids || []).some((v: Json) => v && v.pub && v.url)) links.push(["Videos", "/videos"]);
+  if ((d.gal || []).some((g: Json) => g && g.pub && g.img)) links.push(["Gallery", "/gallery"]);
+  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && f.hide !== true && String(f.q || "").trim() && faqText(f.a))) links.push(["FAQs", "/faqs"]);
+  for (const p of d.pages || []) if (p && p.pub && p.kind !== "link" && p.slug) links.push([String(p.title || p.slug), "/" + p.slug]);
+  for (const p of publishedProjects(d)) links.push([String(p.title), projectPath(d, p)]);
+  for (const a of (d.arts || []).filter((x: Json) => x && x.pub && x.slug).slice(0, 25)) links.push([String(a.title), "/newsflash/" + a.slug]);
+  const li = links.slice(0, 120).map(([t, u]) => `<li><a href="${esc(encodeURI(u))}">${esc(t)}</a></li>`);
+  return `<noscript><nav aria-label="Site pages"><ul>${li.join("")}</ul></nav></noscript>`;
+}
+
+function seoHead(d: Json, path: string, origin: string, known = true): string {
   const m = pageMeta(d, path, origin);
   const seo = (d.seo || {}) as Json;
-  const url = origin + path;
-  const isAdmin = m.robots === "noindex,nofollow";
+  // One address per page: "/projects/" and "/projects" share the same canonical.
+  const cpath = normPath(path);
+  const url = origin + (cpath === "/" ? "/" : encodeURI(cpath));
+  const isAdmin = m.robots === "noindex,nofollow" || !known;
   const out = [
-    `<meta name="robots" content="${m.robots || "index,follow,max-image-preview:large"}">`,
+    `<meta name="robots" content="${!known ? "noindex,follow" : m.robots || "index,follow,max-image-preview:large"}">`,
     `<meta property="og:site_name" content="${esc(d.title)}">`,
     `<meta property="og:type" content="${m.type || "website"}">`,
     `<meta property="og:title" content="${esc(m.title)}">`,
@@ -170,7 +313,9 @@ function seoHead(d: Json, path: string, origin: string): string {
       );
     }
     if (typeof seo.head === "string" && seo.head.trim()) out.push(seo.head);
-    const fp = path.replace(/\/+$/, "");
+    const fp = cpath;
+    if (fp === "/") out.push(...siteJsonLd(d, origin));
+    out.push(breadcrumbJsonLd(d, fp, origin), articleJsonLd(d, fp, origin));
     if (fp === "/faqs" || fp.startsWith("/faqs/")) {
       const ld = faqJsonLd(d, fp === "/faqs" ? undefined : safeDecode(fp.slice(6)));
       if (ld) out.push(`<script type="application/ld+json">${ld}</script>`);
@@ -194,14 +339,17 @@ export async function renderSite(request: Request): Promise<Response> {
     console.error("could not read site data", e);
   }
   const isAdmin = path === "/admin" || path.startsWith("/admin/");
+  // Unknown addresses get a real 404 status (only when the site data could be read, so a database hiccup never 404s real pages).
+  const known = !site?.data || isKnownPath(site.data, path);
 
   html = html.replace("</title>", '</title>\n<link rel="icon" type="image/png" href="/favicon.png">');
   if (site?.data) {
-    const m = pageMeta(site.data, path, origin);
+    const m: Meta = known ? pageMeta(site.data, path, origin) : { title: "Page not found | " + String(site.data.title || "Maskan Estates"), desc: "", robots: "noindex,follow" };
     html = html
       .replace(/<title>[^<]*<\/title>/, () => `<title>${esc(m.title)}</title>`)
       .replace(/<meta name="description" content="[^"]*">/, () => `<meta name="description" content="${esc(m.desc)}">`)
-      .replace("<!--SEO-HEAD-->", () => seoHead(site!.data, path, origin));
+      .replace("<!--SEO-HEAD-->", () => seoHead(site!.data, path, origin, known))
+      .replace("<body>", () => "<body>" + (known && !isAdmin ? crawlNav(site!.data) : ""));
     const boot = JSON.stringify({ data: site.data, savedAt: site.savedAt })
       .replace(/</g, "\\u003c")
       .replace(/\u2028/g, "\\u2028")
@@ -224,25 +372,45 @@ export async function renderSite(request: Request): Promise<Response> {
     "x-frame-options": "SAMEORIGIN",
   };
   if (isAdmin) headers["x-robots-tag"] = "noindex, nofollow";
-  return new Response(request.method === "HEAD" ? null : html, { status: 200, headers });
+  else if (!known) headers["x-robots-tag"] = "noindex";
+  return new Response(request.method === "HEAD" ? null : html, { status: known ? 200 : 404, headers });
 }
 
 export async function renderSitemap(request: Request): Promise<Response> {
   const origin = new URL(request.url).origin;
   const site = await readSite().catch(() => null);
   const d = (site?.data || {}) as Json;
-  const paths = new Set<string>(["/", "/newsflash", "/doc", "/videos", "/gallery"]);
-  for (const p of d.pages || []) if (p.pub && p.kind !== "link" && p.slug) paths.add("/" + p.slug);
-  for (const b of d.boxes || []) if (b.title) paths.add("/tools/" + slugify(String(b.title)));
-  for (const a of d.arts || []) if (a.pub && a.slug) paths.add("/newsflash/" + a.slug);
-  for (const v of d.vids || []) if (v.pub && v.slug) paths.add("/videos/" + v.slug);
-  for (const p of projectSitemapPaths(d)) paths.add(p);
-  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && f.hide !== true && String(f.q || "").trim() && faqText(f.a))) paths.add("/faqs");
-  for (const f of d.faqs || []) if (f && f.pub !== false && f.hide === true && f.slug && String(f.q || "").trim() && faqText(f.a)) paths.add("/faqs/" + f.slug);
-  for (const f of d.slides || []) if ((f.lk || "page") === "page" && f.slug) paths.add("/featured/" + f.slug);
+  // path -> last-modified date (only where the site really records one)
+  const paths = new Map<string, string | undefined>();
+  const add = (p: string, lastmod?: string) => {
+    if (!paths.has(p)) paths.set(p, lastmod);
+  };
+  for (const p of ["/", "/newsflash", "/doc"]) add(p);
+  // Empty listing pages stay out of the sitemap (they would be thin pages).
+  if ((d.vids || []).some((v: Json) => v && v.pub && v.url)) add("/videos");
+  if ((d.gal || []).some((g: Json) => g && g.pub && g.img)) add("/gallery");
+  for (const p of d.pages || []) if (p.pub && p.kind !== "link" && p.slug) add("/" + p.slug);
+  for (const b of d.boxes || []) if (b.title) add("/tools/" + slugify(String(b.title)));
+  for (const a of d.arts || []) if (a.pub && a.slug) add("/newsflash/" + a.slug, isoDate(a.date));
+  for (const v of d.vids || []) if (v.pub && v.slug) add("/videos/" + v.slug, isoDate(v.date));
+  for (const p of projectSitemapPaths(d)) add(p);
+  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && f.hide !== true && String(f.q || "").trim() && faqText(f.a))) add("/faqs");
+  for (const f of d.faqs || []) if (f && f.pub !== false && f.hide === true && f.slug && String(f.q || "").trim() && faqText(f.a)) add("/faqs/" + f.slug);
+  for (const f of d.slides || []) if ((f.lk || "page") === "page" && f.slug) add("/featured/" + f.slug);
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    [...paths].map((p) => `  <url><loc>${esc(origin + p)}</loc></url>`).join("\n") +
+    [...paths]
+      .map(([p, lm]) => `  <url><loc>${esc(origin + encodeURI(p))}</loc>${lm ? `<lastmod>${lm}</lastmod>` : ""}</url>`)
+      .join("\n") +
     "\n</urlset>\n";
   return new Response(xml, { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=600" } });
+}
+
+/** robots.txt is built per request so the Sitemap line always carries the live domain. */
+export function renderRobots(request: Request): Response {
+  const origin = new URL(request.url).origin;
+  const body = ["User-agent: *", "Allow: /", "Disallow: /admin", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
+  return new Response(request.method === "HEAD" ? null : body, {
+    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
+  });
 }
