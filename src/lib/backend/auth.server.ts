@@ -17,7 +17,8 @@ export async function logAct(request: Request | null, who: string, action: strin
         ua: request ? (request.headers.get("user-agent") || "").slice(0, 200) : "",
       });
     const { data } = await db().from("activity_log").select("id").order("id", { ascending: false }).range(300, 300);
-    if (data?.[0]) await db().from("activity_log").delete().lte("id", data[0].id);
+    const oldest = data?.at(0);
+    if (oldest) await db().from("activity_log").delete().lte("id", oldest.id);
   } catch (e) {
     console.error("activity log failed", e);
   }
@@ -48,18 +49,18 @@ async function makeOwnerToken(): Promise<string> {
   return exp + "." + (await hmacHex(p + "|" + u, "owner|" + exp));
 }
 
-// Valid only with a token issued by the owner login above (header X-Owner-Token or X-Admin-Token).
 export async function ownerSession(request: Request): Promise<Session | null> {
   const rawToken = request.headers.get("x-owner-token") || request.headers.get("x-admin-token") || "";
-  const m = /^(\d{10,16})\.([a-f0-9]{64})$/.exec(rawToken);
-  if (!m) return null;
+  const match = /^(\d{10,16})\.([a-f0-9]{64})$/.exec(rawToken);
+  if (!match) return null;
+  const exp = match.at(1) || "";
+  const sig = match.at(2) || "";
   const { u, p } = ownerCreds();
-  if (!u || !p || Number(m[1]) < now()) return null;
-  const good = await hmacHex(p + "|" + u, "owner|" + m[1]);
-  return safeEqual(good, m[2]!) ? { user: u, role: "owner", isMain: true, tokenHash: "owner" } : null;
+  if (!u || !p || Number(exp) < now()) return null;
+  const good = await hmacHex(p + "|" + u, "owner|" + exp);
+  return safeEqual(good, sig) ? { user: u, role: "owner", isMain: true, tokenHash: "owner" } : null;
 }
 
-// Require a valid owner token for ALL /admin routes and APIs
 export async function getSession(request: Request): Promise<Session | null> {
   return ownerSession(request);
 }
@@ -84,7 +85,6 @@ export async function login(request: Request, body: { user?: string; pass?: stri
     return json({ ok: false, error: "Too many attempts.", wait: LOCK_WINDOW }, 429);
   }
 
-  // Run both constant-time checks unconditionally to prevent timing leaks
   const userOk = safeEqual(user, cu);
   const passOk = safeEqual(pass, cp);
 
