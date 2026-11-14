@@ -129,6 +129,8 @@ h2{font-size:24px}
 .fb b{font:700 44px/1 var(--font-display);letter-spacing:.02em}
 .fb span{font:500 26px/1 var(--font-body)}
 @media (hover:hover){.flip[data-act]:hover .fi,.flip[data-act]:focus-visible .fi{transform:rotateX(180deg)}}
+a.flip{display:block;color:inherit;text-decoration:none}
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .flip[data-act]:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:12px}
 @media (prefers-reduced-motion:reduce){.fi{transition:none}}
 .tfull{position:fixed;inset:0;z-index:50;background:var(--surface);color:var(--fg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -1421,9 +1423,9 @@ function homeHTML(){
    <span class="hmeta">AUTOPLAY ${(S.delay/1000).toFixed(1)}s &middot; hover to pause</span>
    <button class="ar l" data-act="prev" aria-label="Previous slide">&#8249;</button><button class="ar r" data-act="next" aria-label="Next slide">&#8250;</button>
    <div class="dots">${S.slides.map((_,i)=>`<button class="dot" data-act="dot" data-i="${i}" aria-label="Slide ${i+1}"></button>`).join('')}</div></section>`:`<section class="hero" style="display:grid;place-items:center"><p class="sub">No slides yet. Add banner images in Admin &rsaquo; Hero slider.</p></section>`;
-  const tools=S.boxes.map((b,i)=>{const L=!S.inline;return `<div class="tool"><div class="flip"${L?` data-act="newtab" data-r="t:${i}" role="link" tabindex="0" aria-label="Open ${esc(b.title)} in a new tab"`:''}><div class="fi"><div class="ff"><h3 data-i="${i}" ${S.inline?'contenteditable="true" spellcheck="false" title="Edit title"':''}>${esc(b.title)}</h3></div><div class="fb" aria-hidden="true"><b>OPEN</b><span>&#8599;</span></div></div></div></div>`}).join('');
+  const tools=S.boxes.map((b,i)=>{const L=!S.inline;return `<div class="tool">${L?`<a class="flip" href="${esc(pathOf('t:'+i))}" target="_blank" rel="noopener" data-act="newtab" data-r="t:${i}" aria-label="Open ${esc(b.title)} in a new tab">`:'<div class="flip">'}<div class="fi"><div class="ff"><h3 data-i="${i}" ${S.inline?'contenteditable="true" spellcheck="false" title="Edit title"':''}>${esc(b.title)}</h3></div><div class="fb" aria-hidden="true"><b>OPEN</b><span>&#8599;</span></div></div>${L?'</a>':'</div>'}</div>`}).join('');
   const latest=pubArts().filter(a=>a.home).slice(0,6),homeVids=pubVids().slice(0,3);
-  return hero+`<section><div class="sech"><h2>Property tools</h2></div><div class="tools">${tools}</div></section>
+  return `<h1 class="vh">${esc(S.title)}${S.seo&&S.seo.desc?' - '+esc(S.seo.desc):''}</h1>`+hero+`<section><div class="sech"><h2>Property tools</h2></div><div class="tools">${tools}</div></section>
   ${latest.length?`<section><div class="sech"><div><h2>Latest Newsflash</h2><p class="sub">Notices and updates, each with its own article page.</p></div><a class="btn" href="/newsflash" data-act="go" data-r="news">All Newsflash</a></div><div class="nl">${latest.map(cardHTML).join('')}</div></section>`:''}
   ${homeVids.length?`<section><div class="sech"><div><h2>Latest videos</h2><p class="sub">Watch our official videos right here on the site.</p></div><a class="btn" href="/videos" data-act="go" data-r="videos">All videos</a></div><div class="nl">${homeVids.map(vcardHTML).join('')}</div></section>`:''}
   ${pubGal().length?`<section><div class="sech"><div><h2>Photo gallery</h2><p class="sub">Recent photos from our work.</p></div><a class="btn" href="/gallery" data-act="go" data-r="gallery">All photos</a></div><div class="gg">${pubGal().slice(0,4).map(g=>`<figure class="gf"><a class="gi2" href="/gallery" data-act="go" data-r="gallery" aria-label="Open the gallery"><img src="${esc(g.img)}" alt="${esc(g.alt||g.t||S.title+' photo')}" ${P().lazyImg?'loading="lazy" decoding="async"':''}></a></figure>`).join('')}</div></section>`:''}`;

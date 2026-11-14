@@ -302,7 +302,8 @@ function seoHead(d: Json, path: string, origin: string, known = true): string {
     `<meta property="og:title" content="${esc(m.title)}">`,
     `<meta property="og:description" content="${esc(m.desc)}">`,
     `<meta property="og:url" content="${esc(url)}">`,
-    m.img ? `<meta property="og:image" content="${esc(m.img)}">` : "",
+    // Pages without their own picture still get one in WhatsApp / Facebook previews: the site logo.
+    `<meta property="og:image" content="${esc(m.img || absImg(d.logoImg, origin) || origin + "/logo.png")}">`,
     `<meta name="twitter:card" content="${m.img ? "summary_large_image" : "summary"}">`,
   ];
   if (!isAdmin) {
