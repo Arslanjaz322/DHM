@@ -186,6 +186,19 @@ a.nc{text-decoration:none}
 .rtb button:hover{border-color:var(--acc);color:var(--acc)}
 .rte{display:block!important;max-width:none!important;border:1px solid var(--line);border-radius:0 0 7px 7px;padding:12px 14px;background:var(--surface);color:var(--fg);font:15px/1.6 var(--font-body);overflow:auto;max-height:70vh;outline:0;min-width:0}
 .rte:focus{border-color:var(--acc)}
+.f .rtb select{width:auto;flex:none;max-width:160px}
+.rtb select{font:600 12px var(--font-body);padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#fff);color:var(--fg)}
+.rtb .rts{width:1px;background:var(--line);margin:2px 3px}
+.rtt:not([hidden]),.rti:not([hidden]){display:contents}
+.rtt button,.rti button{border-color:var(--acc)!important}
+.rte img,.art img{max-width:100%;height:auto;display:inline-block;vertical-align:middle}
+.rte img{cursor:pointer}
+.rte table,.art table{border-collapse:collapse}
+.rte th,.rte td{border:1px solid var(--line);padding:6px 10px;min-width:40px}
+.rte h1,.art h1.x{font-size:30px}.rte h2{font-size:24px}.rte h3{font-size:20px}.rte h4{font-size:17px}.rte h5{font-size:15px}.rte h6{font-size:13px}
+.art h5{font-size:15px;font-family:var(--font-display);margin:4px 0 0}.art h6{font-size:13px;font-family:var(--font-display);margin:4px 0 0;text-transform:uppercase;letter-spacing:.04em}
+.al-l{text-align:left}.al-c{text-align:center}.al-r{text-align:right}.al-j{text-align:justify}
+.art img.iw25,.rte img.iw25{width:25%}.art img.iw50,.rte img.iw50{width:50%}.art img.iw75,.rte img.iw75{width:75%}.art img.iw100,.rte img.iw100{width:100%}
 .rte>*+*{margin-top:12px}
 .art h2{font-size:26px;margin-top:10px}
 .art h3{font-size:21px;margin-top:6px;font-family:var(--font-display);line-height:1.2;margin-bottom:0}
@@ -749,7 +762,7 @@ const fgFor=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return '#ffffff';
 
 /* ---------- save / load (draft -> live) ---------- */
 const KEYS=['title','logo','logoImg','accent','accentCustom','siteBg','surface','nav','delay','slides','boxes','docs','pages','arts','vids','vidNav','gal','galNav','projs','projCats','projNav','seo','banner','notes','perf','faqCats','faqs','faqNav','wa'];
-const pick=()=>{const o={};KEYS.forEach(k=>o[k]=S[k]);return o};
+const pick=()=>{fixFaqSlugs();const o={};KEYS.forEach(k=>o[k]=S[k]);return o};
 const snap=()=>JSON.stringify(pick());
 let SAVED=snap(),LASTSAVE=0,SESSION_SAVED=false,bT=null,AUTOSAVE=LS.get('maskan_autosave')!=='0';
 function applyData(d){KEYS.forEach(k=>{if(d&&d[k]!==undefined)S[k]=d[k]});S.perf=Object.assign({},PERF_DEF,S.perf||{});if(d&&d.panels&&d.panels.length)ZIP_DIRTY=true;
@@ -776,11 +789,11 @@ function applyData(d){KEYS.forEach(k=>{if(d&&d[k]!==undefined)S[k]=d[k]});S.perf
   if(!Array.isArray(S.faqCats))S.faqCats=FAQ_CATS_DEF();
   S.faqCats=S.faqCats.filter(c=>c&&typeof c==='object');S.faqCats.forEach((c,j)=>{c.name=String(c.name==null?'Category':c.name);c.id=String(c.id||('fc'+(j+1)));c.pub=c.pub!==false});
   if(!Array.isArray(S.faqs))S.faqs=[];
-  S.faqs=S.faqs.filter(f=>f&&typeof f==='object');S.faqs.forEach(f=>{['q','a','cat'].forEach(k=>{f[k]=f[k]==null?'':String(f[k])});f.pub=f.pub!==false});
+  S.faqs=S.faqs.filter(f=>f&&typeof f==='object');S.faqs.forEach(f=>{['q','a','cat'].forEach(k=>{f[k]=f[k]==null?'':String(f[k])});f.pub=f.pub!==false;f.hide=f.hide===true;f.slug=typeof f.slug==='string'?f.slug:''});
   S.wa=Object.assign(WA_DEF(),(S.wa&&typeof S.wa==='object')?S.wa:{});['num','msg'].forEach(k=>{if(typeof S.wa[k]!=='string')S.wa[k]=String(S.wa[k]==null?'':S.wa[k])});
   /* one-time: sites saved before FAQs existed get an FAQs menu link (removing it later sticks) */
   if(d&&!d.faqNav){if(!S.nav.some(n=>n.route==='faqs')){const k=S.nav.findIndex(n=>n.route==='docs');S.nav.splice(k<0?S.nav.length:k+1,0,{label:'FAQs',route:'faqs',dd:false})}S.faqNav=true}
-  fixSlideSlugs()}
+  fixFaqSlugs();fixSlideSlugs()}
 const API='/api/site-data';
 let AUTH='0'.repeat(64),syncT=null,syncing=false,syncMsg='',REMOTE_AT=0,RETRIES=0,CONFLICT=false;
 function setAuth(){}
@@ -890,7 +903,7 @@ const pubArts=()=>S.arts.filter(a=>a.pub);
 const visPages=()=>S.pages.filter(p=>p.pub);
 function routes(){return [{r:'home',l:'Home',p:'/'},{r:'news',l:'Newsflash',p:'/newsflash'},{r:'projects',l:'Projects',p:'/projects'},...(S.projCats||[]).map(c=>({r:'pc:'+c.slug,l:c.name,p:'/projects/'+c.slug})),{r:'docs',l:'Documents',p:'/doc'},{r:'videos',l:'Videos',p:'/videos'},{r:'gallery',l:'Gallery',p:'/gallery'},{r:'faqs',l:'FAQs',p:'/faqs'},...visPages().map(p=>({r:'p:'+p.slug,l:p.title,p:'/'+p.slug}))]}
 const artOf=r=>S.arts.find(a=>'a:'+a.slug===r);
-const pathOf=r=>{const a=artOf(r);if(a)return '/newsflash/'+a.slug;const pj=projOf(r);if(pj)return projPath(pj);const vv=vidOf(r);if(vv)return '/videos/'+vv.slug;const ff=fOf(r);if(ff)return '/featured/'+ff.slug;if(r.startsWith('t:')){const b=S.boxes[+r.slice(2)];return '/tools/'+(b?slug(b.title).replace(/-+$/,''):'')}return (routes().find(x=>x.r===r)||{p:'/'}).p};
+const pathOf=r=>{const a=artOf(r);if(a)return '/newsflash/'+a.slug;const pj=projOf(r);if(pj)return projPath(pj);const vv=vidOf(r);if(vv)return '/videos/'+vv.slug;const ff=fOf(r);if(ff)return '/featured/'+ff.slug;const fq=faqOf(r);if(fq)return '/faqs/'+fq.slug;if(r.startsWith('t:')){const b=S.boxes[+r.slice(2)];return '/tools/'+(b?slug(b.title).replace(/-+$/,''):'')}return (routes().find(x=>x.r===r)||{p:'/'}).p};
 /* ---------- real page addresses: /, /newsflash, /tools/<tool>, /tools/<tool>/<tab>, /admin ---------- */
 function urlFor(r,sub){let p=pathOf(r);if(sub&&r.startsWith('t:'))p+='/'+sub;return p}
 function parsePath(){
@@ -901,6 +914,7 @@ function parsePath(){
   if((m=/^\/projects\/([^/]+)\/([^/]+)$/.exec(p))&&(S.projs||[]).some(x=>x.slug===m[2]))return {view:'site',route:'pj:'+m[2]};
   if((m=/^\/videos\/([^/]+)$/.exec(p))&&(S.vids||[]).some(v=>v.slug===m[1]))return {view:'site',route:'v:'+m[1]};
   if((m=/^\/featured\/([^/]+)$/.exec(p))&&S.slides.some(x=>x.slug===m[1]))return {view:'site',route:'f:'+m[1]};
+  if((m=/^\/faqs\/([^/]+)$/.exec(p))&&pubFaqs().some(f=>f.hide&&f.slug===m[1]))return {view:'site',route:'q:'+m[1]};
   const r=routes().find(x=>x.p===p);
   return {view:'site',route:r?r.r:'home'};
 }
@@ -1095,10 +1109,10 @@ const setArtPhotos=(a,arr)=>{a.img=arr[0]||'';a.imgs=arr.slice(1)};
 function pstat(id,msg,err){const el=document.getElementById(id);if(el){el.textContent=msg||'';el.style.color=err?'#c0392b':''}}
 const swap=(a,i,j)=>{if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]]};
 /* ---------- rich text (paste keeps headings, bold, lists, links) ---------- */
-const RT_OK=new Set(['P','H2','H3','H4','UL','OL','LI','BR','BLOCKQUOTE','STRONG','EM','U','S','A','TABLE','THEAD','TBODY','TR','TH','TD','HR','CODE','SUP','SUB']);
-const RT_DROP=/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|NOSCRIPT|TEMPLATE|SVG|MATH|FORM|INPUT|BUTTON|SELECT|TEXTAREA|HEAD|META|LINK|TITLE|IMG|PICTURE|VIDEO|AUDIO|CANVAS)$/;
+const RT_OK=new Set(['P','H1','H2','H3','H4','H5','H6','UL','OL','LI','BR','BLOCKQUOTE','STRONG','EM','U','S','A','TABLE','THEAD','TBODY','TR','TH','TD','HR','CODE','SUP','SUB']);
+const RT_DROP=/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|NOSCRIPT|TEMPLATE|SVG|MATH|FORM|INPUT|BUTTON|SELECT|TEXTAREA|HEAD|META|LINK|TITLE|PICTURE|VIDEO|AUDIO|CANVAS)$/;
 const RT_CONT=/^(DIV|SECTION|ARTICLE|MAIN|HEADER|FOOTER|ASIDE|FIGURE|FIGCAPTION|DETAILS|SUMMARY|NAV)$/;
-const RT_BLK=/^(P|H2|H3|H4|UL|OL|BLOCKQUOTE|TABLE|HR)$/;
+const RT_BLK=/^(P|H1|H2|H3|H4|H5|H6|UL|OL|BLOCKQUOTE|TABLE|HR)$/;
 const looksHTML=s=>/^\s*<(p|h[1-6]|ul|ol|div|blockquote|table|hr)[\s>\/]/i.test(s||'');
 const rtCache=new Map();
 function rtClean(html){
@@ -1106,6 +1120,7 @@ function rtClean(html){
   if(rtCache.has(html))return rtCache.get(html);
   const doc=new DOMParser().parseFromString('<body>'+html+'</body>','text/html');
   const root=document.createElement('div');
+  const alOf=n=>{const m=/text-align:\s*(left|center|right|justify)/i.exec(n.getAttribute('style')||'')||/^(left|center|right|justify)$/i.exec(n.getAttribute('align')||'');const v=m&&m[1].toLowerCase();if(v)return v==='left'?'al-l':v==='center'?'al-c':v==='right'?'al-r':'al-j';const c=(n.getAttribute('class')||'').match(/\bal-[lcrj]\b/);return c?c[0]:''};
   const walk=(src,dst)=>{
     src.childNodes.forEach(n=>{
       if(n.nodeType===3){dst.appendChild(document.createTextNode(n.nodeValue.replace(/[\s\u00a0]+/g,' ')));return}
@@ -1117,23 +1132,23 @@ function rtClean(html){
         if(tag==='B'&&/font-weight:\s*(normal|400|300)/.test(st)){walk(n,dst);return}
         tag=tag==='B'?'STRONG':'EM';
       }
-      if(tag==='H1')tag='H2';
-      if(tag==='H5'||tag==='H6')tag='H4';
       if(tag==='STRIKE'||tag==='DEL')tag='S';
+      if(tag==='IMG'){const s=(n.getAttribute('src')||'').trim();if(!/^\/(?!\/)[^\s"'<>]+$/.test(s))return;const im=document.createElement('img');im.setAttribute('src',s);im.setAttribute('alt',(n.getAttribute('alt')||'').slice(0,300));im.setAttribute('loading','lazy');im.setAttribute('decoding','async');const w=(n.getAttribute('class')||'').match(/\biw(25|50|75|100)\b/);if(w)im.className='iw'+w[1];dst.appendChild(im);return}
       if(RT_CONT.test(tag)){
         if(n.querySelector('p,h1,h2,h3,h4,h5,h6,ul,ol,blockquote,table,div,section,article'))walk(n,dst);
-        else{const p=document.createElement('p');walk(n,p);dst.appendChild(p)}
+        else{const p=document.createElement('p');const ac=alOf(n);if(ac)p.className=ac;walk(n,p);dst.appendChild(p)}
         return;
       }
       if(tag==='A'){
         const h=(n.getAttribute('href')||'').trim();
-        if(!/^(https?:|mailto:|tel:)/i.test(h)){walk(n,dst);return}
-        const a=document.createElement('a');a.setAttribute('href',h);a.setAttribute('target','_blank');a.setAttribute('rel','noopener');
+        const ext=/^https?:/i.test(h);
+        if(!(ext||/^(mailto:|tel:)/i.test(h)||/^\/(?!\/)/.test(h)||/^#/.test(h))){walk(n,dst);return}
+        const a=document.createElement('a');a.setAttribute('href',h);if(ext){a.setAttribute('target','_blank');a.setAttribute('rel','noopener')}
         walk(n,a);dst.appendChild(a);return;
       }
       if(RT_OK.has(tag)){
         if(tag==='BR'||tag==='HR'){dst.appendChild(document.createElement(tag.toLowerCase()));return}
-        const el=document.createElement(tag.toLowerCase());walk(n,el);dst.appendChild(el);return;
+        const el=document.createElement(tag.toLowerCase());if(/^(P|H[1-6]|BLOCKQUOTE|LI|TD|TH)$/.test(tag)){const ac=alOf(n);if(ac)el.className=ac}walk(n,el);dst.appendChild(el);return;
       }
       /* span / font / anything else: keep the look it carries (Word and Google Docs use styles) */
       let t=dst;
@@ -1164,8 +1179,8 @@ function rtClean(html){
       else if(l.nodeName==='BR')el.removeChild(l);else break;
     }
   };
-  out.querySelectorAll('p,h2,h3,h4,li,td,th,blockquote').forEach(trim);
-  out.querySelectorAll('p,h2,h3,h4,li,blockquote,ul,ol,strong,em,u,s,a,sup,sub,code').forEach(el=>{if(!el.textContent.trim()&&!el.querySelector('br,table,hr'))el.remove()});
+  out.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,td,th,blockquote').forEach(trim);
+  out.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote,ul,ol,strong,em,u,s,a,sup,sub,code').forEach(el=>{if(!el.textContent.trim()&&!el.querySelector('br,table,hr,img'))el.remove()});
   const res=out.innerHTML;
   if(rtCache.size>200)rtCache.clear();
   rtCache.set(html,res);return res;
@@ -1179,8 +1194,10 @@ function plain(s){
   return t.value.replace(/\s+/g,' ').trim();
 }
 const words=s=>(plain(s).trim().match(/\S+/g)||[]).length;
+const RT_BTN=[['undo','\u21b6','Undo'],['redo','\u21b7','Redo'],'|',['bold','<b>B</b>','Bold'],['italic','<i>I</i>','Italic'],['underline','<u>U</u>','Underline'],['strike','<s>S</s>','Strikethrough'],'|',['al-l','Left','Align left'],['al-c','Center','Align center'],['al-r','Right','Align right'],['al-j','Justify','Justify'],'|',['ul','\u2022 List','Bulleted list'],['ol','1. List','Numbered list'],['quote','\u201c \u201d','Quote'],['hr','\u2014','Divider line'],'|',['link','Link','Add link'],['unlink','Unlink','Remove link'],['image','Image','Upload a picture'],['table','Table','Insert table'],'|',['clear','Clear','Clear formatting']];
+const rtBtn=([c,l,t])=>`<button type="button" data-rtc="${c}" title="${t}" aria-label="${t}">${l}</button>`;
 function rtField(id,label,path,val,minH){
-  return `<div class="f"><label id="${id}-l">${label}</label><div class="rtb" role="toolbar" aria-label="Text formatting">${[['bold','<b>B</b>','Bold'],['italic','<i>I</i>','Italic'],['underline','<u>U</u>','Underline'],['h2','H2','Heading'],['h3','H3','Sub-heading'],['p','\u00b6','Normal text'],['ul','\u2022 List','Bulleted list'],['ol','1. List','Numbered list'],['quote','\u201c \u201d','Quote'],['link','Link','Add link'],['unlink','Unlink','Remove link'],['clear','Clear','Clear formatting']].map(([c,l,t])=>`<button type="button" data-rtc="${c}" title="${t}" aria-label="${t}">${l}</button>`).join('')}</div><div class="rte art" id="${id}" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="${id}-l" data-rt="${path}" style="min-height:${minH}px">${rtBody(val)}</div><span class="note">Paste from Word, Google Docs, a web page or Claude: headings, bold, lists, links and tables are kept. Pictures are not pasted here; use the picture uploader.</span></div>`;
+  return `<div class="f"><label id="${id}-l">${label}</label><div class="rtb" role="toolbar" aria-label="Text formatting"><select data-rtfmt aria-label="Text style"><option value="">Text style</option><option value="P">Paragraph</option>${[1,2,3,4,5,6].map(n=>`<option value="H${n}">Heading ${n}</option>`).join('')}</select>${RT_BTN.map(x=>x==='|'?'<span class="rts"></span>':rtBtn(x)).join('')}<span class="rtt" hidden>${[['t-ar','+Row','Add row below'],['t-ac','+Col','Add column right'],['t-dr','\u2212Row','Delete row'],['t-dc','\u2212Col','Delete column'],['t-dt','\u2212Table','Delete table']].map(rtBtn).join('')}</span><span class="rti" hidden>${rtBtn(['imgopt','Picture options','Picture description and size'])}</span><input type="file" accept="image/*" multiple hidden data-rtimg></div><div class="rte art" id="${id}" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="${id}-l" data-rt="${path}" style="min-height:${minH}px">${rtBody(val)}</div><span class="note rtst" role="status">Paste from Word, Google Docs or a web page: headings, bold, lists, links, tables and alignment are kept. Use the Image button to upload pictures. SEO tip: the page title is already the main H1, so start your text with Heading 2, and add a description to every picture.</span></div>`;
 }
 function rtSync(el){
   const v=rtClean(el.innerHTML);
@@ -1204,19 +1221,60 @@ document.addEventListener('paste',e=>{
 },true);
 document.addEventListener('focusin',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('rte')){try{document.execCommand('defaultParagraphSeparator',false,'p')}catch(_){}}});
 document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('.rtb button'))e.preventDefault()});
+let rtLast=null,rtImg=null;
+const rtOf=n=>{n=n&&(n.nodeType===1?n:n.parentNode);return n&&n.closest?n.closest('.rte'):null};
+function rtRestore(el){el.focus();const s=getSelection();if(rtLast&&rtLast.el===el){try{s.removeAllRanges();s.addRange(rtLast.range)}catch(_){}}else{const r=document.createRange();r.selectNodeContents(el);r.collapse(false);s.removeAllRanges();s.addRange(r)}}
+function rtInsertBlock(el,html){
+  rtRestore(el);const s=getSelection();let n=s.rangeCount?s.anchorNode:null;if(n===el)n=null;
+  while(n&&n.parentNode!==el)n=n.parentNode;
+  if(n&&n.nodeType===1){const blank=!n.textContent.trim()&&!n.querySelector('img,table,hr');n.insertAdjacentHTML('afterend',html);if(blank)n.remove()}
+  else el.insertAdjacentHTML('beforeend',html);
+  rtSync(el);
+}
+function rtCell(el){const s=getSelection();let n=s&&s.anchorNode;if(n&&n.nodeType===3)n=n.parentNode;const c=n&&n.closest&&n.closest('td,th');return c&&el.contains(c)?c:null}
+function rtTools(el){const box=el.closest('.f');if(!box)return;const tt=box.querySelector('.rtt'),ti=box.querySelector('.rti');if(tt)tt.hidden=!rtCell(el);if(ti)ti.hidden=!(rtImg&&el.contains(rtImg))}
+document.addEventListener('selectionchange',()=>{const s=getSelection();if(!s||!s.rangeCount)return;const el=rtOf(s.anchorNode);if(el){rtLast={el,range:s.getRangeAt(0).cloneRange()};rtTools(el)}});
+document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('.rte');if(!el)return;if(rtImg)rtImg.style.outline='';rtImg=e.target.tagName==='IMG'?e.target:null;if(rtImg)rtImg.style.outline='3px solid var(--acc)';rtTools(el)});
+document.addEventListener('change',e=>{const s=e.target;if(!(s.matches&&s.matches('select[data-rtfmt]')))return;const box=s.closest('.f'),el=box&&box.querySelector('.rte');const v=s.value;s.value='';if(!el||!v)return;rtRestore(el);try{document.execCommand('formatBlock',false,v)}catch(_){}rtSync(el)});
+document.addEventListener('change',async e=>{
+  const inp=e.target;if(!(inp.matches&&inp.matches('input[data-rtimg]')))return;
+  const box=inp.closest('.f'),el=box&&box.querySelector('.rte'),st=box&&box.querySelector('.rtst'),files=[...inp.files];inp.value='';
+  if(!el||!files.length)return;
+  for(const f of files){
+    try{
+      if(st)st.textContent='Uploading '+f.name+'\u2026';
+      const u=f.type==='image/gif'?(await mdUploadBlob(f,f.name,false)).url:await storePic(await fitMax(f,2000),f.name);
+      if(!/^\/(?!\/)/.test(String(u)))throw new Error('The picture could not be saved to the Photo library. Check that you are signed in and try again.');
+      const alt=prompt('Describe this picture (alt text, helps Google and screen readers):',f.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' '));
+      rtInsertBlock(el,'<p class="al-c"><img src="'+esc(u)+'" alt="'+esc(alt||'')+'"></p>');
+      if(st)st.textContent='Picture added. Click it to change its description or size.';
+    }catch(err){if(st)st.textContent=err&&err.message==='auth'?'Please sign in again, then upload the picture.':'Upload failed: '+(err&&err.message||err);break}
+  }
+});
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('.rtb button[data-rtc]');if(!b)return;
   const box=b.closest('.f'),el=box&&box.querySelector('.rte');if(!el)return;
-  el.focus();const c=b.dataset.rtc,x=(k,v)=>document.execCommand(k,false,v);
+  const c=b.dataset.rtc,x=(k,v)=>document.execCommand(k,false,v);
+  if(c==='image'){const i=box.querySelector('input[data-rtimg]');if(i)i.click();return}
+  rtRestore(el);
   try{
-    if(c==='bold')x('bold');else if(c==='italic')x('italic');else if(c==='underline')x('underline');
-    else if(c==='h2')x('formatBlock','H2');else if(c==='h3')x('formatBlock','H3');else if(c==='p')x('formatBlock','P');
-    else if(c==='ul')x('insertUnorderedList');else if(c==='ol')x('insertOrderedList');else if(c==='quote')x('formatBlock','BLOCKQUOTE');
-    else if(c==='link'){const u=prompt('Link address (https://...)','https://');if(u&&/^(https?:|mailto:|tel:)/i.test(u.trim()))x('createLink',u.trim())}
+    if(c==='undo')x('undo');else if(c==='redo')x('redo');
+    else if(c==='bold')x('bold');else if(c==='italic')x('italic');else if(c==='underline')x('underline');else if(c==='strike')x('strikeThrough');
+    else if(c==='al-l')x('justifyLeft');else if(c==='al-c')x('justifyCenter');else if(c==='al-r')x('justifyRight');else if(c==='al-j')x('justifyFull');
+    else if(c==='ul')x('insertUnorderedList');else if(c==='ol')x('insertOrderedList');else if(c==='quote')x('formatBlock','BLOCKQUOTE');else if(c==='hr')x('insertHorizontalRule');
+    else if(c==='link'){const u=prompt('Link address (https://... or /page-address)','https://');if(u&&/^(https?:|mailto:|tel:|\/(?!\/)|#)/i.test(u.trim()))x('createLink',u.trim())}
     else if(c==='unlink')x('unlink');
     else if(c==='clear'){x('removeFormat');x('unlink');x('formatBlock','P')}
+    else if(c==='table'){const v=(prompt('Table size: rows x columns','3x3')||'').match(/^\s*(\d{1,2})\s*[x\u00d7,]\s*(\d{1,2})\s*$/i);if(v){const R=Math.min(30,+v[1]||1),C=Math.min(10,+v[2]||1);let h='<table><tbody>';for(let r=0;r<R;r++){h+='<tr>';for(let k=0;k<C;k++)h+=r?'<td>&nbsp;</td>':'<th>Heading</th>';h+='</tr>'}rtInsertBlock(el,h+'</tbody></table><p><br></p>');rtTools(el);return}}
+    else if(c==='imgopt'){if(rtImg&&el.contains(rtImg)){const a=prompt('Picture description (alt text):',rtImg.getAttribute('alt')||'');if(a!==null)rtImg.setAttribute('alt',a);const w=prompt('Picture width as % of the text width: 25, 50, 75 or 100',(String(rtImg.className).match(/iw(\d+)/)||[0,'100'])[1]);if(w&&/^(25|50|75|100)$/.test(w.trim()))rtImg.className='iw'+w.trim()}}
+    else if(c.startsWith('t-')){const cell=rtCell(el);if(cell){const row=cell.parentNode,tb=row.closest('table'),ci=cell.cellIndex,mk=(src)=>{const n=document.createElement(src&&src.tagName==='TH'?'th':'td');n.innerHTML='&nbsp;';return n};
+      if(c==='t-ar'){const nr=document.createElement('tr');[...row.cells].forEach(()=>nr.appendChild(mk(null)));row.after(nr)}
+      else if(c==='t-ac'){[...tb.rows].forEach(r=>{const s=r.cells[ci];if(s)s.after(mk(s))})}
+      else if(c==='t-dr'){if(tb.rows.length>1)row.remove();else tb.remove()}
+      else if(c==='t-dc'){if(row.cells.length>1)[...tb.rows].forEach(r=>{if(r.cells[ci])r.cells[ci].remove()});else tb.remove()}
+      else if(c==='t-dt')tb.remove()}}
   }catch(_){}
-  rtSync(el);
+  rtSync(el);rtTools(el);
 });
 async function sha(s){if(!(window.crypto&&crypto.subtle))return null;const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 
@@ -1305,6 +1363,7 @@ function pageMeta(){
   {const pj=projOf(S.route);if(pj)return {title:tplTitle(pj.title),desc:(String(pj.sum||'').trim()||plain(pj.body||'')).replace(/\s+/g,' ').slice(0,155)||S.seo.desc,img:absImg(projCover(pj))||S.seo.og}}
   {const pc=pcOf(S.route);if(pc)return {title:tplTitle(pc.name),desc:String(pc.sum||'').trim()||(pc.name+' by '+S.title+': photos and details of each project.'),img:absImg(catCover(pc))||S.seo.og}}
   if(S.route==='projects')return {title:tplTitle('Projects'),desc:'Projects by '+S.title+': photos and details, grouped by category.',img:absImg(projCover(pubProjs()[0]))||S.seo.og};
+  {const q=faqOf(S.route);if(q)return {title:tplTitle(q.q),desc:plain(q.a).replace(/\s+/g,' ').slice(0,155)||S.seo.desc}}
   if(S.route==='faqs')return {title:tplTitle('FAQs'),desc:'Answers to frequently asked questions from '+S.title+'.'};
   if(S.route==='videos')return {title:tplTitle('Videos'),desc:'Watch '+S.title+' videos, played from our official channels.'};
   if(S.route==='gallery')return {title:tplTitle('Gallery'),desc:'Photo gallery from '+S.title+'.',img:absImg((pubGal()[0]||{}).img)||S.seo.og};
@@ -1332,9 +1391,9 @@ function applyHead(){
 
 /* ---------- site views ---------- */
 function headerHTML(){
-  const ok=n=>routes().some(r=>r.r===n.route)&&!(n.route==='videos'&&!S.admin&&!pubVids().length)&&!(n.route==='gallery'&&!S.admin&&!pubGal().length)&&!(n.route==='faqs'&&!S.admin&&!pubFaqs().length);
+  const ok=n=>routes().some(r=>r.r===n.route)&&!(n.route==='videos'&&!S.admin&&!pubVids().length)&&!(n.route==='gallery'&&!S.admin&&!pubGal().length)&&!(n.route==='faqs'&&!S.admin&&!shownFaqs().length);
   const nav=S.nav.filter(ok),top=nav.filter(n=>!n.dd),dd=nav.filter(n=>n.dd);
-  const cur=r=>(S.route===r||(r==='news'&&S.route.startsWith('a:'))||(r==='videos'&&S.route.startsWith('v:'))||(r==='projects'&&/^p[cj]:/.test(S.route)))?' aria-current="page"':'';
+  const cur=r=>(S.route===r||(r==='news'&&S.route.startsWith('a:'))||(r==='videos'&&S.route.startsWith('v:'))||(r==='faqs'&&S.route.startsWith('q:'))||(r==='projects'&&/^p[cj]:/.test(S.route)))?' aria-current="page"':'';
   /* Projects menu item: opens a list of the project categories */
   const pcats=S.projCats||[];
   const projDD=n=>`<div class="dd pdd"><button class="nb" data-act="dd" aria-haspopup="true" aria-expanded="false"${cur('projects')}>${esc(n.label)} &#9662;</button><div class="dm" hidden><a class="nb" href="/projects" data-act="go" data-r="projects"${S.route==='projects'?' aria-current="page"':''}>All projects</a>${pcats.map(c=>`<a class="nb" href="/projects/${esc(c.slug)}" data-act="go" data-r="pc:${esc(c.slug)}"${S.route==='pc:'+c.slug||(projOf(S.route)||{}).cat===c.id?' aria-current="page"':''}>${esc(c.name)}</a>`).join('')}</div></div>`;
@@ -1409,6 +1468,10 @@ const galCats=()=>[...new Set(pubGal().map(g=>String(g.cat||'').trim()).filter(B
 function galList(){const all=pubGal(),sel=String(S.ui.gcat||'').trim();return sel&&galCats().includes(sel)?all.filter(g=>String(g.cat||'').trim()===sel):all}
 /* ---------- FAQs (public page) ---------- */
 const pubFaqs=()=>{const ids=new Set(S.faqCats.filter(c=>c.pub).map(c=>c.id));return S.faqs.filter(f=>f.pub&&f.q.trim()&&plain(f.a).trim()&&ids.has(f.cat))};
+const shownFaqs=()=>pubFaqs().filter(f=>!f.hide);
+const faqOf=r=>String(r).startsWith('q:')?pubFaqs().find(f=>f.hide&&f.slug===String(r).slice(2)):null;
+/* a hidden FAQ is still published: it gets its own page address and is found by search, but is not listed on /faqs */
+function fixFaqSlugs(){const seen=new Set();S.faqs.forEach(f=>{if(!f.hide||(!f.q.trim()&&!f.slug))return;const base=slug(String(f.slug||f.q)).replace(/^-+|-+$/g,'').slice(0,80)||'faq';let s=base,n=2;while(seen.has(s))s=base+'-'+n++;f.slug=s;seen.add(s)})}
 /* answer text: blank line = new paragraph, lines starting with "- " = list, **bold** */
 function faqFmt(s){
   const out=[],inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');let ul=null,pp=[];
@@ -1417,20 +1480,24 @@ function faqFmt(s){
   fp();fu();return out.join('');
 }
 function faqPillsHTML(){
-  const all=pubFaqs(),cats=S.faqCats.filter(c=>c.pub&&all.some(f=>f.cat===c.id));
+  const all=shownFaqs(),cats=S.faqCats.filter(c=>c.pub&&all.some(f=>f.cat===c.id));
   if(!cats.some(c=>c.id===S.ui.fqcat))S.ui.fqcat=(cats[0]||{}).id||'';
   return cats.map(c=>`<button class="fqp" data-act="fqcat" data-id="${esc(c.id)}" aria-pressed="${c.id===S.ui.fqcat&&!S.ui.fqq}">${esc(c.name)}</button>`).join('');
 }
 function faqListHTML(){
   const t=String(S.ui.fqq||'').trim().toLowerCase(),all=pubFaqs(),cn=id=>(S.faqCats.find(c=>c.id===id)||{}).name||'';
-  const items=t?all.filter(f=>(f.q+' '+plain(f.a)).toLowerCase().includes(t)):all.filter(f=>f.cat===S.ui.fqcat);
-  return items.length?items.map(f=>`<details class="fq"><summary><span>${esc(f.q)}</span>${t?`<small>${esc(cn(f.cat))}</small>`:''}</summary><div class="fqa">${looksHTML(f.a)?rtBody(f.a):faqFmt(f.a)}</div></details>`).join(''):`<div class="fqe">${all.length?'No questions found.':'No FAQs have been published yet.'}</div>`;
+  const items=t?all.filter(f=>(f.q+' '+plain(f.a)).toLowerCase().includes(t)):all.filter(f=>f.cat===S.ui.fqcat&&!f.hide);
+  return items.length?items.map(f=>`<details class="fq"><summary><span>${esc(f.q)}</span>${t?`<small>${esc(cn(f.cat))}</small>`:''}</summary><div class="fqa">${looksHTML(f.a)?rtBody(f.a):faqFmt(f.a)}${f.hide?`<p><a href="/faqs/${esc(f.slug)}" data-act="go" data-r="q:${esc(f.slug)}">Open this answer on its own page</a></p>`:''}</div></details>`).join(''):`<div class="fqe">${all.length?'No questions found.':'No FAQs have been published yet.'}</div>`;
 }
 function faqsHTML(){
   const pills=faqPillsHTML();
   return `<section><div class="sech"><div><h1 style="font-size:34px">FAQs</h1><p class="sub">Answers to common questions. Pick a category or search.</p></div><span class="tag">/faqs</span></div>
   <input id="fqs" class="fqs-in" type="search" placeholder="Search questions\u2026" aria-label="Search questions" value="${esc(S.ui.fqq||'')}" autocomplete="off">
   <div class="fqw"><nav class="fqc" id="fqc" aria-label="FAQ categories">${pills}</nav><div class="fql" id="fql">${faqListHTML()}</div></div></section>`;
+}
+function faqPageHTML(f){
+  const cn=(S.faqCats.find(c=>c.id===f.cat)||{}).name||'';
+  return `<article class="art" style="max-width:860px"><nav class="crumb" aria-label="Breadcrumb"><button data-act="go" data-r="home">Home</button> / <button data-act="go" data-r="faqs">FAQs</button> / <span>${esc(f.q)}</span></nav><h1>${esc(f.q)}</h1>${cn?`<div class="meta">${esc(cn)}</div>`:''}<div class="fqa" style="padding:0">${looksHTML(f.a)?rtBody(f.a):faqFmt(f.a)}</div><p><button class="btn" data-act="go" data-r="faqs">More FAQs</button></p></article>`;
 }
 function faqRefresh(){const c=$('#fqc'),l=$('#fql');if(c)c.innerHTML=faqPillsHTML();if(l)l.innerHTML=faqListHTML()}
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='fqs'){S.ui.fqq=e.target.value;faqRefresh()}});
@@ -1563,12 +1630,13 @@ function siteHTML(){
   if(S.route.startsWith('p:')&&!S.pages.some(p=>p.slug===S.route.slice(2)&&p.pub))S.route='home';
   if(S.route.startsWith('a:')&&!artOf(S.route))S.route='news';
   if(S.route.startsWith('v:')&&!vidOf(S.route))S.route='videos';
+  if(S.route.startsWith('q:')&&!faqOf(S.route))S.route='faqs';
   if(S.route.startsWith('f:')&&!fOf(S.route))S.route='home';
   if(S.route.startsWith('pj:')&&!projOf(S.route))S.route='projects';
   if(S.route.startsWith('pc:')&&!pcOf(S.route))S.route='projects';
   const r=S.route;
   if(r.startsWith('t:'))return toolHTML(+r.slice(2));
-  const body=r==='home'?homeHTML():r.startsWith('t:')?toolHTML(+r.slice(2)):r==='news'?newsHTML():r==='docs'?docsHTML():r==='videos'?videosHTML():r==='gallery'?galleryHTML():r==='faqs'?faqsHTML():r.startsWith('v:')?watchHTML(vidOf(r)):r.startsWith('f:')?featHTML(fOf(r)):r.startsWith('a:')?artHTML(artOf(r)):r==='projects'?projListHTML(null):r.startsWith('pc:')?projListHTML(pcOf(r)):r.startsWith('pj:')?projHTML(projOf(r)):pageHTML(r.slice(2));
+  const body=r==='home'?homeHTML():r.startsWith('t:')?toolHTML(+r.slice(2)):r==='news'?newsHTML():r==='docs'?docsHTML():r==='videos'?videosHTML():r==='gallery'?galleryHTML():r==='faqs'?faqsHTML():r.startsWith('q:')?faqPageHTML(faqOf(r)):r.startsWith('v:')?watchHTML(vidOf(r)):r.startsWith('f:')?featHTML(fOf(r)):r.startsWith('a:')?artHTML(artOf(r)):r==='projects'?projListHTML(null):r.startsWith('pc:')?projListHTML(pcOf(r)):r.startsWith('pj:')?projHTML(projOf(r)):pageHTML(r.slice(2));
   return (S.banner?`<div class="ban"><span>${esc(S.banner)}</span><button data-act="banx">Dismiss</button></div>`:'')+headerHTML()+`<main class="mn">${body}</main>`+footerHTML();
 }
 
@@ -1987,6 +2055,7 @@ function vPrev(v){
 const nextFcId=()=>{let n=1;while(S.faqCats.some(c=>c.id==='fc'+n))n++;return 'fc'+n};
 function faqMove(i,d){const cat=S.faqs[i].cat;let j=i+d;while(j>=0&&j<S.faqs.length&&S.faqs[j].cat!==cat)j+=d;if(j<0||j>=S.faqs.length)return;swap(S.faqs,i,j)}
 function secFaqs(){
+  fixFaqSlugs();
   const cats=S.faqCats;
   if(!cats.some(c=>c.id===S.ui.fqac))S.ui.fqac=(cats[0]||{}).id||'';
   const ci=cats.findIndex(c=>c.id===S.ui.fqac),c=cats[ci],rows=[];
@@ -1998,9 +2067,9 @@ function secFaqs(){
    <div class="zbox"><div class="f"><label for="fqcn">Category name</label><input id="fqcn" type="text" data-b="faqCats.${ci}.name" data-live="fqcl-${ci}" value="${esc(c.name)}"></div>
    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqCats.${ci}.pub" data-rr="1" ${c.pub?'checked':''}> Visible on the website</label><button class="btn sm" data-act="fqcup" data-i="${ci}" aria-label="Move category up">&uarr;</button><button class="btn sm" data-act="fqcdn" data-i="${ci}" aria-label="Move category down">&darr;</button><button class="btn sm warn" data-act="fqcdel" data-i="${ci}">Delete category</button></div></div>
    <div><button class="btn pri" data-act="fqadd">Add question</button></div>
-   ${rows.length?rows.map((i,n)=>{const f=S.faqs[i];return `<div class="zbox"><div class="f"><label for="fqq${i}">Question ${n+1}</label><input id="fqq${i}" type="text" data-b="faqs.${i}.q" value="${esc(f.q)}"></div>
+   ${rows.length?rows.map((i,n)=>{const f=S.faqs[i];return `<div class="zbox"><div class="f"><label for="fqq${i}">Question ${n+1}${f.hide?' (hidden from the list)':''}</label><input id="fqq${i}" type="text" data-b="faqs.${i}.q" value="${esc(f.q)}"></div>
     ${rtField('fqa'+i,'Answer','faqs.'+i+'.a',f.a,130)}
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqs.${i}.pub" ${f.pub?'checked':''}> Published</label><button class="btn sm" data-act="fqup" data-i="${i}" aria-label="Move question up">&uarr;</button><button class="btn sm" data-act="fqdn" data-i="${i}" aria-label="Move question down">&darr;</button><button class="btn sm warn" data-act="fqdel" data-i="${i}">Delete</button></div></div>`}).join(''):'<p class="sub">No questions in this category yet. Click \u201cAdd question\u201d.</p>'}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><label class="chk"><input type="checkbox" data-b="faqs.${i}.pub" ${f.pub?'checked':''}> Published</label><label class="chk"><input type="checkbox" data-b="faqs.${i}.hide" data-rr="1" ${f.hide?'checked':''}> Hide from Frontend list</label><button class="btn sm" data-act="fqup" data-i="${i}" aria-label="Move question up">&uarr;</button><button class="btn sm" data-act="fqdn" data-i="${i}" aria-label="Move question down">&darr;</button><button class="btn sm warn" data-act="fqdel" data-i="${i}">Delete</button></div>${f.hide?`<div class="f"><label for="fqs${i}">Page address of this hidden FAQ: /faqs/</label><input id="fqs${i}" type="text" data-b="faqs.${i}.slug" data-rr="1" value="${esc(f.slug)}"><span class="note">Still published: it is not listed on the FAQs page, but visitors find it with the site search, and Google can crawl and index this page${f.slug?`: <a href="/faqs/${esc(f.slug)}" target="_blank" rel="noopener">/faqs/${esc(f.slug)}</a>`:''}.</span></div>`:''}</div>`}).join(''):'<p class="sub">No questions in this category yet. Click \u201cAdd question\u201d.</p>'}
   </div>`:'<p class="sub">No categories yet. Click \u201cAdd category\u201d.</p>'}</div>`;
 }
 
