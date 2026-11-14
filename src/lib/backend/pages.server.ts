@@ -327,7 +327,24 @@ function seoHead(d: Json, path: string, origin: string, known = true): string {
 const DEFAULT_TAGS =
   '<meta name="robots" content="index,follow,max-image-preview:large">\n<meta property="og:type" content="website">\n<meta property="og:title" content="Maskan Estates">\n<meta property="og:description" content="Property listings, calculators and Newsflash updates for plot owners and buyers in Pakistan.">\n<meta name="twitter:card" content="summary">';
 
+/**
+ * Optional: set the CANONICAL_HOST variable in Cloudflare (for example www.dhamultan.online) and every
+ * request on any other host (such as the bare dhamultan.online) is redirected there with a 301, so Google
+ * only ever sees one version of each page. Leave it unset to turn this off.
+ */
+export function hostRedirect(request: Request): Response | null {
+  const want = String(globalThis.process?.env?.CANONICAL_HOST || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (!want || !/^[a-z0-9.-]+(:\d+)?$/.test(want)) return null;
+  const url = new URL(request.url);
+  if (url.host.toLowerCase() === want || url.hostname === "localhost") return null;
+  url.protocol = "https:";
+  url.host = want;
+  return Response.redirect(url.toString(), 301);
+}
+
 export async function renderSite(request: Request): Promise<Response> {
+  const moved = hostRedirect(request);
+  if (moved) return moved;
   const url = new URL(request.url);
   const origin = url.origin;
   const path = url.pathname;
@@ -342,7 +359,10 @@ export async function renderSite(request: Request): Promise<Response> {
   // Unknown addresses get a real 404 status (only when the site data could be read, so a database hiccup never 404s real pages).
   const known = !site?.data || isKnownPath(site.data, path);
 
-  html = html.replace("</title>", '</title>\n<link rel="icon" type="image/png" href="/favicon.png">');
+  html = html.replace(
+    "</title>",
+    '</title>\n<link rel="icon" href="/favicon.ico" sizes="any">\n<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+  );
   if (site?.data) {
     const m: Meta = known ? pageMeta(site.data, path, origin) : { title: "Page not found | " + String(site.data.title || "Maskan Estates"), desc: "", robots: "noindex,follow" };
     html = html
@@ -377,6 +397,8 @@ export async function renderSite(request: Request): Promise<Response> {
 }
 
 export async function renderSitemap(request: Request): Promise<Response> {
+  const moved = hostRedirect(request);
+  if (moved) return moved;
   const origin = new URL(request.url).origin;
   const site = await readSite().catch(() => null);
   const d = (site?.data || {}) as Json;
@@ -408,6 +430,8 @@ export async function renderSitemap(request: Request): Promise<Response> {
 
 /** robots.txt is built per request so the Sitemap line always carries the live domain. */
 export function renderRobots(request: Request): Response {
+  const moved = hostRedirect(request);
+  if (moved) return moved;
   const origin = new URL(request.url).origin;
   const body = ["User-agent: *", "Allow: /", "Disallow: /admin", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
   return new Response(request.method === "HEAD" ? null : body, {
