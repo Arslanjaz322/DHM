@@ -2,8 +2,10 @@
 // plus admin sign-in, team, activity log and backups.
 import {
   addUser,
+  adminKeyConfigured,
   delUser,
   getSession,
+  hasAdminKey,
   listUsers,
   logAct,
   login,
@@ -13,7 +15,7 @@ import {
   type Session,
 } from "./auth.server";
 import { d1 } from "./d1.server";
-import { db, fail, json, now, readTextLimited, TOOL_KEY_RE, tooLarge } from "./util.server";
+import { db, fail, json, now, readTextLimited, serverError, TOOL_KEY_RE, tooLarge } from "./util.server";
 
 const MAX_BYTES = 4.5 * 1024 * 1024; // largest request we accept at all
 // Cloudflare D1 cannot store a row bigger than about 2 MB, and the limit is in BYTES (Urdu and other
@@ -236,20 +238,63 @@ async function importBackup(request: Request, s: Session, body: Json, raw: strin
   const cur = await readSite();
   const savedAt = await writeSite(data, s.user, cur?.savedAt || 0);
   const tools = Array.isArray(body.tools) ? (body.tools as Json[]).slice(0, MAX_IMPORT_TOOLS) : [];
+  // Saved in groups of 30 (one query per group): one query per tool would exceed the number of database
+  // queries a single Worker request may run (50 on the Free plan).
+  const rows = new Map<string, string | null>();
   for (const t of tools) {
-    if (t && typeof t.tool === "string" && TOOL_KEY_RE.test(t.tool)) {
-      await db().from("tool_data").upsert({ tool: t.tool, data: t.data ?? null, updated_at: now() });
-    }
+    if (!t || typeof t.tool !== "string" || !TOOL_KEY_RE.test(t.tool)) continue;
+    const text = t.data == null ? null : JSON.stringify(t.data);
+    if (text !== null && new TextEncoder().encode(text).length > D1_ROW_MAX) continue; // too big for one row
+    rows.set(t.tool, text);
+  }
+  const list = [...rows];
+  const stamp = now();
+  for (let i = 0; i < list.length; i += 30) {
+    const chunk = list.slice(i, i + 30);
+    await d1()
+      .prepare(
+        "INSERT INTO tool_data (tool, data, updated_at) VALUES " +
+          chunk.map(() => "(?, ?, ?)").join(", ") +
+          " ON CONFLICT (tool) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+      )
+      .bind(...chunk.flatMap(([k, v]) => [k, v, stamp]))
+      .run();
   }
   await logAct(request, s.user, "restore", `from a backup file (${String(body.name || "backup").slice(0, 80)})`);
   return json({ ok: true, savedAt });
 }
 
-export async function siteDataGET(): Promise<Response> {
+/**
+ * What visitors may see: the site without its unpublished drafts (pages, articles, projects, videos,
+ * photos, FAQs). Only used once the owner has locked the admin with ADMIN_KEY: the admin then loads the
+ * full copy by sending the key. Rules are deliberately the same or looser than the website's own
+ * "published" checks in site.html, so nothing that is visible today can disappear.
+ */
+export function publicView(d: Json): Json {
+  if (!isObj(d)) return d;
+  const out: Json = { ...d };
+  const keep = (k: string, fn: (x: Json) => boolean) => {
+    if (Array.isArray(out[k])) out[k] = (out[k] as Json[]).filter(fn);
+  };
+  keep("arts", (x) => !!x && !!x.pub);
+  keep("pages", (x) => !!x && !!x.pub);
+  keep("projs", (x) => !!x && !!x.pub);
+  keep("vids", (x) => !!x && !!x.pub);
+  keep("gal", (x) => !!x && !!x.pub);
+  keep("faqs", (x) => !!x && x.pub !== false);
+  return out;
+}
+
+/** The copy of the site the person asking is allowed to read. */
+export function dataFor(request: Request, d: Json): Json {
+  return adminKeyConfigured() && !hasAdminKey(request) ? publicView(d) : d;
+}
+
+export async function siteDataGET(request: Request): Promise<Response> {
   const site = await readSite();
   // Nothing published yet: the website shows its built-in starting content.
   if (!site) return json({ data: null, savedAt: 0 });
-  return json({ data: site.data, savedAt: site.savedAt });
+  return json({ data: dataFor(request, site.data), savedAt: site.savedAt });
 }
 
 export async function siteDataPOST(request: Request): Promise<Response> {
@@ -316,6 +361,6 @@ export async function siteDataPOST(request: Request): Promise<Response> {
     }
   } catch (e) {
     console.error("site-data error", e);
-    return fail(500, e instanceof Error ? e.message : "Server error");
+    return serverError(e);
   }
 }

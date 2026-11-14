@@ -1,5 +1,7 @@
-// The main /admin panel is OPEN: no username, password or token is checked (getSession always succeeds).
-// Only the HTML tool boxes' own admin tabs need the owner login (see login/ownerSession below).
+// The main /admin panel has NO login form. By default it is open (getSession always succeeds).
+// To lock it, add a Cloudflare secret named ADMIN_KEY (a long random string): from then on every admin
+// request must carry that key in the X-Admin-Token header (the admin page asks for it once and remembers it).
+// The HTML tool boxes' own admin tabs use the owner login (see login/ownerSession below).
 import { cfEnv } from "./d1.server";
 import { clientIp, db, fail, fullIp, json, now, safeEqual } from "./util.server";
 
@@ -27,9 +29,27 @@ export async function logAct(request: Request | null, who: string, action: strin
   }
 }
 
-// Always returns the owner session: no sign-in is needed.
-export async function getSession(_request: Request): Promise<Session | null> {
-  return OPEN_SESSION;
+function adminKey(): string {
+  const e = cfEnv();
+  const pe = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env || {};
+  return String((e["ADMIN_KEY"] as string | undefined) ?? pe["ADMIN_KEY"] ?? "").trim();
+}
+
+/** True when the owner has set the ADMIN_KEY secret, i.e. the admin API is locked. */
+export function adminKeyConfigured(): boolean {
+  return adminKey().length > 0;
+}
+
+/** True only when ADMIN_KEY is set and this request carries it. */
+export function hasAdminKey(request: Request): boolean {
+  const k = adminKey();
+  return !!k && safeEqual(request.headers.get("x-admin-token") || "", k);
+}
+
+// Open by default; locked (null for everybody without the key) once ADMIN_KEY is set.
+export async function getSession(request: Request): Promise<Session | null> {
+  if (!adminKeyConfigured()) return OPEN_SESSION;
+  return hasAdminKey(request) ? OPEN_SESSION : null;
 }
 
 // ---- Owner login for the HTML tool boxes' own admin tabs (/tools/<tool>/admin) ----

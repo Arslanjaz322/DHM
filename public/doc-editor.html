@@ -742,7 +742,7 @@ function touch(){
   }
 }
 async function getSite(){
-  const r=await fetch('/api/site-data?'+Date.now(),{cache:'no-store'});
+  const r=await fetch('/api/site-data?'+Date.now(),{cache:'no-store',headers:st.token?{'X-Admin-Token':st.token}:{}});
   if(!r.ok)throw Object.assign(new Error(r.status===404?'The website has no published data yet.':'Could not read the website data ('+r.status+').'),{code:r.status});
   const j=await r.json();if(!j||!j.data)throw new Error('The website data could not be read.');return j;
 }

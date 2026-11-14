@@ -1,73 +1,51 @@
-# Tool boxes: owner login
+# Security notes (current)
 
-The main `/admin` panel is open (no login). The HTML tool boxes' own admin tabs (`/tools/<tool>/admin`, and the Admin tab inside a box)
-need the owner's username and password. Set them in Cloudflare: Workers & Pages > your project > Settings > Variables and Secrets,
-add **ADMIN_USERNAME** and **ADMIN_PASSWORD** (type: Secret) and redeploy. Saving tool rates (`/api/tool-data` POST) needs the
-signed `X-Owner-Token` issued by that login (valid 12 hours, 8 wrong tries per 15 minutes per IP). Public visitors always see the tool itself.
+## 1. Lock the admin panel with ADMIN_KEY (do this)
 
-# !! Admin sign-in REMOVED (open admin panel)
+The admin panel has no login form. Out of the box it is **open**: anyone who calls `/api/site-data`,
+`/api/media`, `/api/tool-zip` can publish, upload, delete and restore backups, and can add raw HTML to every page
+(custom head code).
 
-As requested, there is no login of any kind any more: no email, username, password, Cloudflare Access button or token check.
-Anyone who opens `/admin` (or calls `/api/site-data`, `/api/media`, `/api/tool-data`, `/api/tool-zip` directly) can edit,
-publish, upload, delete and restore backups. The server treats every request as the owner (`src/lib/backend/auth.server.ts`).
+To lock it, in Cloudflare go to Workers & Pages > your project > Settings > Variables and Secrets and add a
+**Secret** named `ADMIN_KEY`. Use a long random value of 32+ letters and numbers (plain ASCII, no spaces), then redeploy.
 
-If you ever want protection back without a login form, add a Cloudflare Zero Trust / WAF rule (IP allow-list) for `/admin*` and `/api/*` writes.
-Remove any existing Cloudflare Access application on this hostname, otherwise Cloudflare still shows its own "Sign in with Cloudflare" page in front of the site.
+What happens once it is set:
+- Every admin request must send the key (header `X-Admin-Token`); everything else gets 401.
+- `/admin` asks for the key once per browser (saved in that browser) and then works as before.
+- Visitors only receive the **published** copy of the site: pages, articles, projects, videos, photos and FAQs
+  that are not published stay private. (Without `ADMIN_KEY` drafts are readable by anyone.)
+- Opening a tool's admin files needs the owner login (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) or the key.
 
----
+If you lose the key: change the secret in Cloudflare and enter the new one when `/admin` asks.
+To clear the saved key in a browser, clear that site's local storage (`maskan_akey`).
 
-# Security review: changes and open items
+## 2. Tool boxes: owner login
 
-## Fixed in this version
-| Area | Problem | Fix |
-|---|---|---|
-| Sign-in | Brute force only limited per IP address; unknown usernames answered faster than wrong passwords; unlimited password length | Extra per-username lockout, equal response time for unknown users, input length caps (user 80, password 200) |
-| All POST endpoints | Whole request body was read into memory before any size check (unsigned requests too) | Streaming size limits; sign-in requests max 8 KB, signed-in max ~7.5 MB, uploads max their own limits |
-| Picture upload | Only the browser-supplied content type was checked | File header bytes must match the claimed picture type |
-| Video upload | Chunk number/size not tied to the declared video size; incomplete uploads could be finished | Chunks bounded by declared size, all parts required before finishing, ids validated |
-| Media alt/flag | Ids not validated | Validated like delete |
-| Tool ZIPs | A finished upload could be finalized again (changing entry file or which paths are admin-only); unbounded admin/file lists | Finalize allowed once; admin/file lists sanitised and size-capped |
-| Tool data | Any string accepted as tool name | Slug-style names only (also on backup import, max 500 entries) |
-| Tool files | Admin-ticket links sent a Referer and allowed cross-origin reads | `Referrer-Policy: no-referrer`; no CORS header on ticket responses |
-| Headers | No HSTS; admin panel could be framed by other sites | HSTS, nosniff, Permissions-Policy on every response; `frame-ancestors 'self'`, `base-uri`, `object-src 'none'`, `form-action 'self'` on pages |
-| Exported page head | `article.cat`, `article.date`, URL were not HTML-escaped | Escaped |
-| /media/ | Malformed `%` in the address caused a 500 | Returns 404 |
-| Repo | `.env` files were not git-ignored | Added to `.gitignore` |
-| robots.txt | /admin was crawlable | `Disallow: /admin` (page already has noindex) |
+The HTML tool boxes' own admin tabs need the owner's username and password: add secrets **ADMIN_USERNAME** and
+**ADMIN_PASSWORD**. Saving tool rates (`/api/tool-data` POST) needs the signed `X-Owner-Token` issued by that login
+(valid 12 hours, 8 wrong tries per 15 minutes per IP). Tool data is public to read: never store private data in tool boxes.
 
-## Verified as already safe
-Rich text is rebuilt from an allow-list (scripts, iframes, images, event handlers and non-http links are dropped); user values in the admin and public pages are HTML-escaped; tool/page iframes are sandboxed without same-origin access; the doc editor checks message origin; SQL is fully parameterised; passwords use salted PBKDF2; session tokens are stored hashed.
+## 3. Other settings
+- Never leave `DEBUG_ERRORS=1` set: it shows real error messages and stack traces. Without it the browser only
+  gets a generic message and the details stay in the Worker log.
+- `CANONICAL_HOST` (optional): your main domain, for example `www.example.com`; other hosts are redirected there.
+- Apply database migrations: `npx wrangler d1 migrations apply <your-db-name> --remote` (0001 and 0002).
 
-## Open items (not changed, your decision)
-1. **Drafts are publicly readable.** `/api/site-data` and the page boot data contain the whole site JSON, including unpublished pages/articles/projects. Hiding them needs the admin app to load data with its token; changing it blindly could delete drafts on the next publish, so it was left alone.
-2. **Tool data is public to read** (by design: "anyone can read"). Do not store private data in tool boxes.
-3. **Owner/editor trust:** only the owner can change AdSense ID and custom head code (raw HTML). Keep editor accounts to people you trust; editors can still publish any page content.
-4. **Lockout trade-off:** 20 wrong attempts on one username lock that username for 15 minutes, so someone can briefly lock the owner out. Raise `LOCK_MAX_USER` in `auth.server.ts` if that worries you.
-5. **PBKDF2 uses 100,000 rounds**, the Workers maximum. Use a long passphrase (14+ characters).
-6. **Secrets:** after the first owner login, delete `ADMIN_PASSWORD` from Cloudflare (it is ignored once the owner exists). Never leave `DEBUG_ERRORS=1` set: it shows stack traces to visitors.
-7. **Dependencies** could not be audited here (no network). Run `bun audit` / `npm audit` before deploying; note `nitro` is pinned to a beta.
-8. Full CSP for scripts is not enabled because the site uses inline scripts, AdSense and embeds.
+## 4. What the code already does
+Streaming request-size limits; picture uploads checked by file header; video chunks tied to the declared size;
+safe tool ZIP handling (sandboxed, immutable once finished); parameterised SQL; HTML-escaped values and an allow-list
+for rich text; HSTS, nosniff, Permissions-Policy, `frame-ancestors 'self'`; real 404 status for unknown addresses;
+atomic publishing with an overwrite warning; automatic backups.
 
----
-
-# Cloudflare / D1 bug review
-
-## Fixed
-| Problem | Effect | Fix |
-|---|---|---|
-| Site content limit was 4.5 MB **characters**, but a D1 row holds about 2 MB **bytes** (Urdu/other letters take 2-3 bytes each) | Publishing a bigger site failed with a database error, or silently never saved | Limit is now measured in bytes (1.9 MB) with a clear message; same for backup import and tool data |
-| Publish checked "is my copy current?" and saved in two separate steps | Two admins saving at once could overwrite each other without the conflict warning | Save is now one atomic statement (`UPDATE ... WHERE saved_at = <base>`); a stale save returns the normal "newer version" conflict |
-| Cleaning up old tool ZIPs loaded every backup (up to 60 x ~2 MB) into memory | Could exceed the 128 MB Worker memory limit and fail | The database searches the text itself (`instr`), nothing is loaded |
-| Every upsert ran a `PRAGMA table_info` first | Backup import used 2 queries per tool; Workers allow a limited number of D1 queries per request | Primary keys are looked up once per table and cached |
-| Unfinished video uploads were never cleaned up | Upload/part records piled up forever | Records older than 24 h are removed when a new video upload starts |
-| Missing indexes | Slower session, ticket and media lookups as data grows | New migration `0002_indexes.sql` |
-
-**You must apply the new migration:** `npx wrangler d1 migrations apply <your-db-name> --remote`
-(It only adds indexes; it is safe on a live database.) The SQL was tested on a real SQLite engine.
-
-## Things I could not verify or change (check in your Cloudflare dashboard)
-1. **Cloudflare Free plan limits.** Free Workers get about 10 ms of CPU per request, and sign-in hashing (PBKDF2, 100,000 rounds) plus parsing a large site JSON can exceed that (error 1102). The Workers **Paid** plan avoids this. Free also allows only 50 D1 queries per request.
-2. **`wrangler.jsonc` has no `main` or `assets` entry.** This depends on how Lovable/Nitro generates the deploy output, which cannot be checked without building. If a deploy says "missing entry-point", ask Lovable to publish, or add the entry that your build prints.
-3. **Replace the placeholders** `REPLACE_WITH_YOUR_D1_DATABASE_ID` and bucket `website-media` with your real D1 database ID and R2 bucket, and set the secrets `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
-4. **"Full backup" is not a full copy.** The download contains site content, tool data and file lists only. Photos, videos and tool ZIP files stay in R2 and are not inside the backup file; use R2 versioning or copy the bucket for those.
-5. Tests (`bun test`) and a real build could not be run here (no network). Run them once before deploying.
+## 5. Known limits (your decision)
+1. Without `ADMIN_KEY`, the site is editable by anyone (see section 1).
+2. "Custom head code" and the AdSense ID accept raw HTML/IDs: anyone holding the admin key can run script on every page.
+3. A full script Content-Security-Policy is not enabled because the site uses inline scripts, AdSense and embeds.
+4. The backup file holds site content, tool data and file lists only. Photos, videos and tool ZIPs stay in R2:
+   use R2 versioning or copy the bucket. Backups live in the same database as the site: download one regularly.
+5. The whole published site (up to about 1.9 MB) is embedded in each page. Cloudflare compresses it, but keep photos
+   in the Photo library instead of inside the page data.
+6. Cloudflare Free plan: about 10 ms CPU per request and 50 database queries per request. Backup import and cleanups are
+   written to stay within that, but the Workers Paid plan avoids CPU errors (1102).
+7. Dependencies are pinned (including a beta `nitro`); run `npm audit` / `bun audit` before big updates.
+8. The doc editor loads pdf.js, jszip and mammoth from public CDNs at a fixed version.

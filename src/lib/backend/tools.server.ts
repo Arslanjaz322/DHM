@@ -1,6 +1,6 @@
 // Tool boxes: saved tool data (/api/tool-data), uploaded ZIP projects (/api/tool-zip)
 // and serving those ZIP files to visitors at /_tool/<id>.<version>/<file>.
-import { getSession, logAct, ownerSession } from "./auth.server";
+import { getSession, hasAdminKey, logAct, ownerSession } from "./auth.server";
 import { d1 } from "./d1.server";
 import {
   db,
@@ -10,6 +10,7 @@ import {
   now,
   randHex,
   readBufferLimited,
+  serverError,
   readTextLimited,
   sha256Hex,
   storageGet,
@@ -63,7 +64,10 @@ export async function toolDataPOST(request: Request): Promise<Response> {
   const tool = String(body.tool || "");
   if (!TOOL_KEY_RE.test(tool)) return fail(400, "Missing tool.");
   const { error } = await db().from("tool_data").upsert({ tool, data: (body.data ?? null) as never, updated_at: now() });
-  if (error) return fail(500, error.message);
+  if (error) {
+    console.error("tool-data save failed", error.message);
+    return serverError(new Error(error.message));
+  }
   return json({ ok: true });
 }
 
@@ -71,9 +75,10 @@ export async function toolDataPOST(request: Request): Promise<Response> {
 // ZIP versions older than an hour that no live box, the site or any backup still mentions.
 async function unreferencedZips(live: Set<string>): Promise<{ id: string; v: string }[]> {
   const { data: zips } = await db().from("tool_zips").select("id, v, created_at");
-  const cand = (zips || []).filter(
-    (z) => !live.has(`${z.id}.${z.v}`) && Number(z.created_at) < now() - 3600000,
-  );
+  // At most 20 per run: every candidate costs one database query and a Worker request may only run a limited number.
+  const cand = (zips || [])
+    .filter((z) => !live.has(`${z.id}.${z.v}`) && Number(z.created_at) < now() - 3600000)
+    .slice(0, 20);
   if (!cand.length) return [];
   // Ask SQLite whether the site or any backup still mentions the ZIP. Loading every backup (up to ~2 MB
   // each) into the Worker would run out of memory, so the search happens inside the database.
@@ -171,6 +176,11 @@ export async function toolZipPOST(request: Request): Promise<Response> {
         return json({ ok: true });
       }
       case "ticket": {
+        // A ticket opens a tool's admin-only files, so it needs the owner login (X-Owner-Token)
+        // or the ADMIN_KEY. Without this check anybody could mint a ticket.
+        if (!hasAdminKey(request) && !(await ownerSession(request))) {
+          return fail(401, "Sign in as the owner to open the admin panel of a tool.");
+        }
         if (!ZID.test(id) || !ZV.test(v)) return fail(400, "Bad id.");
         const t = randHex(16);
         await db().from("tool_tickets").delete().lt("expires_at", now());
@@ -190,7 +200,7 @@ export async function toolZipPOST(request: Request): Promise<Response> {
     }
   } catch (e) {
     console.error("tool-zip error", e);
-    return fail(500, e instanceof Error ? e.message : "Server error");
+    return serverError(e);
   }
 }
 

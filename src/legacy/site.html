@@ -799,10 +799,24 @@ function applyData(d){KEYS.forEach(k=>{if(d&&d[k]!==undefined)S[k]=d[k]});S.perf
   if(d&&!d.faqNav){if(!S.nav.some(n=>n.route==='faqs')){const k=S.nav.findIndex(n=>n.route==='docs');S.nav.splice(k<0?S.nav.length:k+1,0,{label:'FAQs',route:'faqs',dd:false})}S.faqNav=true}
   fixFaqSlugs();fixSlideSlugs()}
 const API='/api/site-data';
-let AUTH='0'.repeat(64),syncT=null,syncing=false,syncMsg='',REMOTE_AT=0,RETRIES=0,CONFLICT=false;
+let AUTH=LS.get('maskan_akey')||'0'.repeat(64),syncT=null,syncing=false,syncMsg='',REMOTE_AT=0,RETRIES=0,CONFLICT=false;
 function setAuth(){}
 const fmtT=t=>t?new Date(t).toLocaleString():'never';
-function signedOut(msg){if(msg)toast(msg)}
+/* Admin key: only needed once the owner has set the ADMIN_KEY secret in Cloudflare. Until then the admin stays open. */
+const NOKEY='0'.repeat(64);
+let KEYASK=false;
+function askAdminKey(reload){
+  if(KEYASK)return false;KEYASK=true;
+  const k=prompt('This admin panel is protected.\nEnter the admin key (the ADMIN_KEY secret you set in Cloudflare):');
+  KEYASK=false;
+  if(!k||!k.trim())return false;
+  AUTH=k.trim();LS.set('maskan_akey',AUTH);
+  if(reload)location.reload();
+  return true}
+function signedOut(msg){
+  if(msg==='Signed out.'){AUTH=NOKEY;LS.del('maskan_akey');toast(msg);return}
+  if(msg)toast(msg);
+  setTimeout(()=>{if(askAdminKey(false))toast('Key saved. Please try again.')},60)}
 async function pushRemote(force){
   if(!AUTH)throw new Error('Not signed in');
   const body=JSON.stringify({data:pick(),base:REMOTE_AT,force:!!force});
@@ -829,7 +843,7 @@ async function autoSync(force){
     else if(e.conflict){
       /* self-heal: if the server copy is exactly what this device last saved, our base is just stale */
       let healed=false;
-      try{const r=await fetch(API+'?'+Date.now(),{cache:'no-store'});const j=r.ok?await r.json():null;
+      try{const r=await fetch(API+'?'+Date.now(),{cache:'no-store',headers:{'X-Admin-Token':AUTH||NOKEY}});const j=r.ok?await r.json():null;
         if(j&&j.data&&j.savedAt===e.savedAt&&JSON.stringify(j.data)===SAVED){REMOTE_AT=j.savedAt;healed=true}}catch(_){}
       if(healed){syncing=false;return autoSync()}
       CONFLICT=true;syncMsg='Not saved: a newer version was saved elsewhere ('+fmtT(e.savedAt)+'). Use "Overwrite with my changes" to publish yours.';
@@ -883,8 +897,8 @@ async function boot(){
   try{rec=JSON.parse(LS.get('maskan_site')||'null')}catch(e){}
   /* Visitors: the page already came with its data (see page.mjs), so there is nothing to wait for. */
   if(BOOT&&!S.admin&&!rec)return;
-  const getRemote=async()=>{for(const u of [API]){try{const r=await fetch(u+'?'+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&j.data)return j}}catch(e){}}return null};
-  const sess=async()=>{if(!S.admin)return null;try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':AUTH},body:'{"action":"session"}'});if(r.ok){let j={};try{j=await r.json()}catch(_){}return {ok:true,j}}setAuth(null)}catch(e){}return null};
+  const getRemote=async()=>{for(const u of [API]){try{const r=await fetch(u+'?'+Date.now(),{cache:'no-store',headers:{'X-Admin-Token':AUTH||NOKEY}});if(r.ok){const j=await r.json();if(j&&j.data)return j}}catch(e){}}return null};
+  const sess=async()=>{if(!S.admin)return null;try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':AUTH},body:'{"action":"session"}'});if(r.ok){let j={};try{j=await r.json()}catch(_){}return {ok:true,j}}if(r.status===401&&askAdminKey(true))return new Promise(()=>{});setAuth(null)}catch(e){}return null};
   /* the data request and the sign-in check run at the same time */
   const [rm,ss]=await Promise.all([(BOOT&&!S.admin)?Promise.resolve(BOOT):getRemote(),sess()]);
   remote=rm;
@@ -1844,7 +1858,7 @@ function zscan(files,entry){
 }
 async function zapi(a,o){
   let r;
-  try{r=await fetch('/api/tool-zip?a='+a+(o.q||''),{method:'POST',headers:Object.assign({'X-Admin-Token':AUTH||''},o.json?{'Content-Type':'application/json'}:{}),body:o.json?JSON.stringify(o.json):o.body})}
+  try{r=await fetch('/api/tool-zip?a='+a+(o.q||''),{method:'POST',headers:Object.assign({'X-Admin-Token':AUTH||'','X-Owner-Token':TOOLTOK||''},o.json?{'Content-Type':'application/json'}:{}),body:o.json?JSON.stringify(o.json):o.body})}
   catch(e){throw zerr('Network error while uploading. Check your connection.',true)}
   let j={};try{j=await r.json()}catch(e){}
   if(r.status===401){signedOut();throw zerr('Session expired. Please sign in again.')}

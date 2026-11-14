@@ -1,6 +1,7 @@
 // /api/media: the admin photo & video library. Files live in private storage and are
 // served to visitors at /media/<id>.
 import { getSession, logAct } from "./auth.server";
+import { d1 } from "./d1.server";
 import {
   db,
   fail,
@@ -9,6 +10,7 @@ import {
   now,
   randHex,
   readBufferLimited,
+  serverError,
   tooLarge,
   storageGet,
   storagePut,
@@ -64,7 +66,7 @@ export async function mediaRequest(request: Request): Promise<Response> {
 
     if (a === "upload") {
       const type = (request.headers.get("content-type") || "").split(";")[0]!.trim();
-      if (!/^image\/(jpeg|png|webp|gif|avif|svg\+xml)$/.test(type)) return fail(400, "Only JPG, PNG, WebP, GIF or AVIF pictures.");
+      if (!/^image\/(jpeg|png|webp|gif|avif|svg\+xml)$/.test(type)) return fail(400, "Only JPG, PNG, WebP, GIF, AVIF or SVG pictures.");
       const buf = await readBufferLimited(request, MAX_IMG);
       if (!buf) return fail(413, "This picture is larger than 15 MB.");
       if (!buf.byteLength) return fail(400, "Empty file.");
@@ -122,11 +124,13 @@ export async function mediaRequest(request: Request): Promise<Response> {
       const name = String(body.name || "video").slice(0, 120);
       const id = makeId(name, type);
       // forget unfinished uploads older than a day (their records and part lists would pile up forever)
-      const { data: stale } = await db().from("media_uploads").select("id").lt("created_at", now() - 24 * 3600 * 1000);
-      for (const u of stale || []) {
-        await db().from("media_upload_parts").delete().eq("id", String(u.id));
-        await db().from("media_uploads").delete().eq("id", String(u.id));
-      }
+      // (two queries in total, however many there are: a Worker request may only run a limited number)
+      const cutoff = now() - 24 * 3600 * 1000;
+      await d1()
+        .prepare("DELETE FROM media_upload_parts WHERE id IN (SELECT id FROM media_uploads WHERE created_at < ?)")
+        .bind(cutoff)
+        .run();
+      await d1().prepare("DELETE FROM media_uploads WHERE created_at < ?").bind(cutoff).run();
       const uploadUrl = await mpCreate("media", id, type);
       await db()
         .from("media_uploads")
@@ -136,7 +140,7 @@ export async function mediaRequest(request: Request): Promise<Response> {
     return fail(400, "Unknown action.");
   } catch (e) {
     console.error("media error", e);
-    return fail(500, e instanceof Error ? e.message : "Server error");
+    return serverError(e);
   }
 }
 
@@ -162,8 +166,16 @@ export async function mediaChunk(request: Request): Promise<Response> {
       return json({ ok: true });
     }
     if (a === "vdone") {
+      const doneRaw = await readBufferLimited(request, MAX_JSON_BODY);
+      if (!doneRaw) return tooLarge();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- request JSON
-      const body: any = await request.json().catch(() => ({}));
+      let body: any = {};
+      try {
+        body = JSON.parse(new TextDecoder().decode(doneRaw) || "{}");
+      } catch {
+        /* empty body */
+      }
+      if (!body || typeof body !== "object") body = {};
       const id = String(body.id || "");
       if (!ID_RE.test(id)) return fail(400, "Bad id.");
       const { data: up } = await db().from("media_uploads").select("*").eq("id", id).maybeSingle();
@@ -186,7 +198,7 @@ export async function mediaChunk(request: Request): Promise<Response> {
     }
   } catch (e) {
     console.error("media chunk error", e);
-    return fail(500, e instanceof Error ? e.message : "Server error");
+    return serverError(e);
   }
   return mediaRequest(request);
 }

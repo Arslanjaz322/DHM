@@ -1,9 +1,8 @@
 # Dhamultan
 
-Analyse my website and fix all error 
-admin panel work as a backend 
-option added in admin panel for website backup 
-publish through loveable
+Single-page website with an admin panel (`/admin`) that works as its own backend on Cloudflare
+(D1 database + R2 file storage). It includes website backups and is published through Lovable / Cloudflare.
+See `SECURITY-NOTES.md` before going live.
 
 This project was built with [Lovable](https://lovable.dev).
 

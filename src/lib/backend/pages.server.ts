@@ -2,7 +2,8 @@
 // already inside the HTML, so visitors and Google see the right page immediately.
 import siteHtml from "@/legacy/site.html?raw";
 import { categoryCover, projectCategories, projectCover, projectPath, projectSitemapPaths, publishedProjects } from "./projects.server";
-import { readSite } from "./site-data.server";
+import { adminKeyConfigured } from "./auth.server";
+import { publicView, readSite } from "./site-data.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- free-form site JSON
 type Json = any;
@@ -357,25 +358,30 @@ export async function renderSite(request: Request): Promise<Response> {
     console.error("could not read site data", e);
   }
   const isAdmin = path === "/admin" || path.startsWith("/admin/");
+  // Once ADMIN_KEY is set, the HTML only ever carries the published copy of the site (no drafts); the admin
+  // page then loads the full copy itself, sending the key (a page navigation cannot carry it).
+  const locked = adminKeyConfigured();
+  const view: Json = site?.data ? (locked ? publicView(site.data) : site.data) : null;
   // Unknown addresses get a real 404 status (only when the site data could be read, so a database hiccup never 404s real pages).
-  const known = !site?.data || isKnownPath(site.data, path);
+  const known = !view || isKnownPath(view, path);
 
   html = html.replace(
     "</title>",
     '</title>\n<link rel="icon" href="/favicon.ico" sizes="any">\n<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
   );
-  if (site?.data) {
-    const m: Meta = known ? pageMeta(site.data, path, origin) : { title: "Page not found | " + String(site.data.title || "Maskan Estates"), desc: "", robots: "noindex,follow" };
+  if (view) {
+    const m: Meta = known ? pageMeta(view, path, origin) : { title: "Page not found | " + String(view.title || "Maskan Estates"), desc: "", robots: "noindex,follow" };
     html = html
       .replace(/<title>[^<]*<\/title>/, () => `<title>${esc(m.title)}</title>`)
       .replace(/<meta name="description" content="[^"]*">/, () => `<meta name="description" content="${esc(m.desc)}">`)
-      .replace("<!--SEO-HEAD-->", () => seoHead(site!.data, path, origin, known))
-      .replace("<body>", () => "<body>" + (known && !isAdmin ? crawlNav(site!.data) : ""));
-    const boot = JSON.stringify({ data: site.data, savedAt: site.savedAt })
+      .replace("<!--SEO-HEAD-->", () => seoHead(view, path, origin, known))
+      .replace("<body>", () => "<body>" + (known && !isAdmin ? crawlNav(view) : ""));
+    const boot = JSON.stringify({ data: view, savedAt: site!.savedAt })
       .replace(/</g, "\\u003c")
       .replace(/\u2028/g, "\\u2028")
       .replace(/\u2029/g, "\\u2029");
-    html = html.replace("<!--SITE-DATA-->", () => `<script id="site-boot" type="application/json">${boot}</script>`);
+    // The locked admin page gets no embedded copy at all: it fetches the full site with the key.
+    html = html.replace("<!--SITE-DATA-->", () => (locked && isAdmin ? "" : `<script id="site-boot" type="application/json">${boot}</script>`));
   } else {
     html = html.replace("<!--SEO-HEAD-->", isAdmin ? '<meta name="robots" content="noindex,nofollow">' : DEFAULT_TAGS);
   }
@@ -402,7 +408,7 @@ export async function renderSitemap(request: Request): Promise<Response> {
   if (moved) return moved;
   const origin = new URL(request.url).origin;
   const site = await readSite().catch(() => null);
-  const d = (site?.data || {}) as Json;
+  const d = (site?.data ? (adminKeyConfigured() ? publicView(site.data) : site.data) : {}) as Json;
   // path -> last-modified date (only where the site really records one)
   const paths = new Map<string, string | undefined>();
   const add = (p: string, lastmod?: string) => {

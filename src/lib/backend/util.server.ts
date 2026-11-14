@@ -19,6 +19,14 @@ export function json(body: unknown, status = 200, extra: Record<string, string> 
 export const fail = (status: number, error: string, extra: Record<string, unknown> = {}) =>
   json({ ok: false, error, ...extra }, status);
 
+// Generic 500 for the browser: internal messages (table names, SQL, storage errors) stay in the server log.
+// Set DEBUG_ERRORS=1 in Cloudflare temporarily to see the real message while debugging.
+export function serverError(e: unknown): Response {
+  const g = globalThis as unknown as { process?: { env?: Record<string, string | undefined> } };
+  const debug = g.process?.env?.["DEBUG_ERRORS"] === "1";
+  return fail(500, debug && e instanceof Error ? e.message : "Something went wrong on the server. Please try again.");
+}
+
 export function randHex(bytes = 16): string {
   const a = crypto.getRandomValues(new Uint8Array(bytes));
   return [...a].map((x) => x.toString(16).padStart(2, "0")).join("");

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { sameSeoOwnerFields } from "@/lib/backend/site-data.server";
+import { publicView, sameSeoOwnerFields } from "@/lib/backend/site-data.server";
 
 describe("open admin", () => {
   it("treats every request as the owner without any sign-in", async () => {
@@ -59,5 +59,53 @@ describe("security headers", () => {
     expect(r.headers.get("strict-transport-security")).toContain("max-age=");
     expect(r.headers.get("x-content-type-options")).toBe("nosniff");
     expect(r.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+});
+
+describe("admin key lock (ADMIN_KEY)", () => {
+  const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+  const post = (token?: string) =>
+    new Request("https://example.test/api/site-data", { method: "POST", headers: token ? { "x-admin-token": token } : {} });
+  afterEach(() => {
+    delete env["ADMIN_KEY"];
+  });
+
+  it("rejects requests without the right key once ADMIN_KEY is set", async () => {
+    const { getSession, hasAdminKey } = await import("@/lib/backend/auth.server");
+    env["ADMIN_KEY"] = "correct-horse-battery-staple";
+    expect(await getSession(post())).toBeNull();
+    expect(await getSession(post("wrong"))).toBeNull();
+    expect(hasAdminKey(post("correct-horse-battery-staple"))).toBe(true);
+    expect((await getSession(post("correct-horse-battery-staple")))?.role).toBe("owner");
+  });
+
+  it("stays open when ADMIN_KEY is not set", async () => {
+    const { getSession, hasAdminKey } = await import("@/lib/backend/auth.server");
+    expect((await getSession(post()))?.role).toBe("owner");
+    expect(hasAdminKey(post("anything"))).toBe(false);
+  });
+});
+
+describe("public view of the site", () => {
+  it("drops unpublished items but keeps everything else", () => {
+    const site = {
+      title: "T",
+      arts: [{ slug: "a", pub: true }, { slug: "b", pub: false }, { slug: "c" }],
+      pages: [{ slug: "p1", pub: true }, { slug: "p2" }],
+      projs: [{ slug: "x", pub: true }, { slug: "y", pub: false }],
+      vids: [{ slug: "v1", pub: true }, { slug: "v2", pub: false }],
+      gal: [{ img: "1", pub: true }, { img: "2", pub: false }],
+      faqs: [{ q: "a", pub: true }, { q: "b", pub: false }, { q: "c" }],
+      boxes: [{ title: "kept" }],
+    };
+    const v = publicView(site);
+    expect(v.arts.map((x: { slug: string }) => x.slug)).toEqual(["a"]);
+    expect(v.pages).toHaveLength(1);
+    expect(v.projs).toHaveLength(1);
+    expect(v.vids).toHaveLength(1);
+    expect(v.gal).toHaveLength(1);
+    expect(v.faqs.map((x: { q: string }) => x.q)).toEqual(["a", "c"]);
+    expect(v.boxes).toEqual(site.boxes);
+    expect(site.arts).toHaveLength(3); // the original is not modified
   });
 });
