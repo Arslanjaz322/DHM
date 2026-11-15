@@ -1326,6 +1326,7 @@ document.addEventListener('paste',e=>{
   const cd=e.clipboardData;if(!cd)return;
   const h=cd.getData('text/html'),t=cd.getData('text/plain');
   let ins=h&&h.trim()?rtClean(h):'';
+  if(!ins&&looksHTML(t))ins=rtClean(t);
   if(!ins)ins=rtFromText(t);
   if(ins)rtInsert(el,ins);
 },true);
@@ -2381,7 +2382,7 @@ function secSeo(){
   <div class="g2">${field('Facebook page','biz.fb',S.biz.fb)}${field('Instagram profile','biz.ig',S.biz.ig)}</div>
   <div class="g2">${field('YouTube channel','biz.yt',S.biz.yt)}${field('LinkedIn page','biz.li',S.biz.li)}</div>
   <div class="g2">${field('X (Twitter) profile','biz.x',S.biz.x)}</div>
-  <div class="f"><label for="shb">Home page text (about 300+ words helps search ranking; blank lines make paragraphs, or paste HTML with h2/h3/p)</label><textarea id="shb" data-b="homeBody" data-seo="1" class="u51" placeholder="Leave empty to use the built-in text about DHA Multan.">${esc(S.homeBody||'')}</textarea></div>
+  ${rtField('shb','Home page text (about 300+ words helps search ranking). Paste from Word, Google Docs or a web page and the formatting is kept. Leave empty to use the built-in text about DHA Multan.','homeBody',S.homeBody||'',220)}
   <div class="f"><label for="so">Default Open Graph image URL</label><input id="so" type="text" data-b="seo.og" data-seo="1" value="${esc(S.seo.og)}"></div>
   <div class="f"><label for="sh">Extra &lt;head&gt; code (Search Console tag, analytics)</label><textarea id="sh" data-b="seo.head" data-seo="1" class="u52" placeholder="Paste verification tags or analytics snippets">${esc(S.seo.head||'')}</textarea></div>
   <div><span class="lab">Site-wide head (homepage)</span><pre class="code" id="o-head">${esc(siteHead())}</pre></div>
