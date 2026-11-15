@@ -388,6 +388,8 @@ export function hostRedirect(request: Request): Response | null {
   return Response.redirect(url.toString(), 301);
 }
 
+let bootMemo: { key: string; view: Json; boot: string } | null = null;
+
 export async function renderSite(request: Request): Promise<Response> {
   const moved = hostRedirect(request);
   if (moved) return moved;
@@ -405,7 +407,23 @@ export async function renderSite(request: Request): Promise<Response> {
   // Once ADMIN_KEY is set, the HTML only ever carries the published copy of the site (no drafts); the admin
   // page then loads the full copy itself, sending the key (a page navigation cannot carry it).
   const locked = adminKeyConfigured();
-  const view: Json = site?.data ? (locked ? publicView(site.data) : site.data) : null;
+  // The visitor copy of the site and its JSON text are built once per saved version and reused by every
+  // visitor on this Worker instance (stringifying up to ~1.9 MB on each page view is what costs CPU time).
+  let memoBoot = "";
+  let view: Json = null;
+  if (site?.data) {
+    const key = site.savedAt + "|" + (locked ? 1 : 0);
+    if (!bootMemo || bootMemo.key !== key) {
+      const v: Json = locked ? publicView(site.data) : site.data;
+      const boot = JSON.stringify({ data: v, savedAt: site.savedAt })
+        .replace(/</g, "\\u003c")
+        .replace(/\u2028/g, "\\u2028")
+        .replace(/\u2029/g, "\\u2029");
+      bootMemo = { key, view: v, boot };
+    }
+    view = bootMemo.view;
+    memoBoot = bootMemo.boot;
+  }
   // Unknown addresses get a real 404 status (only when the site data could be read, so a database hiccup never 404s real pages).
   const known = !view || isKnownPath(view, path);
 
@@ -420,10 +438,7 @@ export async function renderSite(request: Request): Promise<Response> {
       .replace(/<meta name="description" content="[^"]*">/, () => `<meta name="description" content="${esc(m.desc)}">`)
       .replace("<!--SEO-HEAD-->", () => seoHead(view, path, origin, known))
       .replace("<body>", () => "<body>" + (known && !isAdmin ? crawlNav(view) : ""));
-    const boot = JSON.stringify({ data: view, savedAt: site!.savedAt })
-      .replace(/</g, "\\u003c")
-      .replace(/\u2028/g, "\\u2028")
-      .replace(/\u2029/g, "\\u2029");
+    const boot = memoBoot;
     // The locked admin page gets no embedded copy at all: it fetches the full site with the key.
     html = html.replace("<!--SITE-DATA-->", () => (locked && isAdmin ? "" : `<script id="site-boot" type="application/json">${boot}</script>`));
   } else {

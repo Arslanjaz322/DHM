@@ -40,11 +40,46 @@ function safePath(p: string): string | null {
 }
 
 /* ---------- /api/tool-data ---------- */
+
+// Edge cache (Cloudflare Cache API, works on your own domain): popular tool files and rates are served from the
+// nearest Cloudflare data centre, so 500 visitors at once cost one database + storage read, not 500.
+// Failures are ignored: the page then simply loads without the cache.
+const edgeCache = (): Cache | null => {
+  try {
+    return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default ?? null;
+  } catch {
+    return null;
+  }
+};
+async function edgeGet(request: Request): Promise<Response | null> {
+  try {
+    return (await edgeCache()?.match(request)) ?? null;
+  } catch {
+    return null;
+  }
+}
+async function edgePut(request: Request, response: Response): Promise<void> {
+  try {
+    await edgeCache()?.put(request, response);
+  } catch {
+    /* cache is optional */
+  }
+}
+const EDGE_MAX_BYTES = 5 * 1024 * 1024;
+
 export async function toolDataGET(request: Request): Promise<Response> {
   const tool = new URL(request.url).searchParams.get("tool") || "";
   if (!TOOL_KEY_RE.test(tool)) return fail(400, "Missing tool.");
+  const canCache = request.method === "GET";
+  if (canCache) {
+    const hit = await edgeGet(request);
+    if (hit) return hit;
+  }
   const { data } = await db().from("tool_data").select("data").eq("tool", tool).maybeSingle();
-  return json({ ok: true, data: data?.data ?? null });
+  // Saved rates reach every visitor within about 30 seconds.
+  const res = json({ ok: true, data: data?.data ?? null }, 200, { "cache-control": "public, max-age=30" });
+  if (canCache) await edgePut(request, res.clone());
+  return res;
 }
 
 export async function toolDataPOST(request: Request): Promise<Response> {
@@ -72,12 +107,13 @@ export async function toolDataPOST(request: Request): Promise<Response> {
 }
 
 /* ---------- /api/tool-zip ---------- */
-// ZIP versions older than an hour that no live box, the site or any backup still mentions.
+// ZIP versions older than 24 hours that no live box, the site or any backup still mentions.
+// (Replaced versions stay for a day so visitors who opened the old tool before an update keep working.)
 async function unreferencedZips(live: Set<string>): Promise<{ id: string; v: string }[]> {
   const { data: zips } = await db().from("tool_zips").select("id, v, created_at");
   // At most 20 per run: every candidate costs one database query and a Worker request may only run a limited number.
   const cand = (zips || [])
-    .filter((z) => !live.has(`${z.id}.${z.v}`) && Number(z.created_at) < now() - 3600000)
+    .filter((z) => !live.has(`${z.id}.${z.v}`) && Number(z.created_at) < now() - 24 * 3600000)
     .slice(0, 20);
   if (!cand.length) return [];
   // Ask SQLite whether the site or any backup still mentions the ZIP. Loading every backup (up to ~2 MB
@@ -213,6 +249,10 @@ function isAdminPath(p: string, admin: AdminInfo): boolean {
   return (admin.dirs || []).some((d) => d && p.startsWith(d));
 }
 
+// Finished ZIP versions are immutable, so their entry/admin info is kept in this Worker's memory.
+type ZipInfo = { entry: string | null; admin: unknown };
+const zipMemo = new Map<string, ZipInfo>();
+
 export async function serveTool(request: Request, rest: string): Promise<Response> {
   const notFound = () =>
     new Response("Not found", { status: 404, headers: { "content-type": "text/plain", "access-control-allow-origin": "*" } });
@@ -229,9 +269,22 @@ export async function serveTool(request: Request, rest: string): Promise<Respons
   } catch {
     return notFound();
   }
-  const { data: z } = await db().from("tool_zips").select("entry, admin, finalized").eq("id", id).eq("v", v).maybeSingle();
-  if (!z || !z.finalized) return notFound();
-  if (!p) p = z.entry || "index.html";
+  // Public, whole-file requests (no admin ticket, no byte range) can come straight from the edge cache.
+  const cacheable = !ticket && request.method === "GET" && !request.headers.get("range");
+  if (cacheable) {
+    const hit = await edgeGet(request);
+    if (hit) return hit;
+  }
+  const zkey = `${id}.${v}`;
+  let z = zipMemo.get(zkey) ?? null;
+  if (!z) {
+    const { data } = await db().from("tool_zips").select("entry, admin, finalized").eq("id", id).eq("v", v).maybeSingle();
+    if (!data || !data.finalized) return notFound();
+    z = { entry: (data.entry as string | null) ?? null, admin: data.admin };
+    if (zipMemo.size >= 200) zipMemo.clear();
+    zipMemo.set(zkey, z);
+  }
+  if (!p) p = String(z.entry || "") || "index.html";
   if (!safePath(p)) return notFound();
 
   let ticketOk = false;
@@ -268,5 +321,9 @@ export async function serveTool(request: Request, rest: string): Promise<Respons
   // Public files may be read cross-origin (sandboxed tools have no origin); admin-ticket files may not.
   if (!ticket) h.set("access-control-allow-origin", "*");
   if (ticket) h.set("x-robots-tag", "noindex, nofollow");
-  return new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: h });
+  const out = new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: h });
+  if (cacheable && r.status === 200 && Number(h.get("content-length") || EDGE_MAX_BYTES + 1) <= EDGE_MAX_BYTES) {
+    await edgePut(request, out.clone());
+  }
+  return out;
 }

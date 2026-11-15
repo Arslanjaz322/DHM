@@ -509,7 +509,7 @@ a.nb{text-decoration:none;display:inline-block}
 .pjci img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s}
 .pjc:hover .pjci img{transform:scale(1.05)}
 .pjph{display:grid;place-items:center;width:100%;height:100%;background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 55%,#000));color:var(--acc-fg);font:700 40px var(--font-display)}
-.pjlg{width:76px;height:76px;border-radius:50%;background:var(--surface);margin-top:-38px;display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,.18);position:relative;overflow:hidden;padding:6px;flex:none}
+.pjlg{width:var(--lgs,120px);height:var(--lgs,120px);border-radius:50%;background:var(--surface);margin-top:calc(var(--lgs,120px)/-2);display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,.18);position:relative;overflow:hidden;padding:6px;flex:none}
 .pjlg img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
 .pjlg i{width:100%;height:100%;border-radius:50%;background:var(--acc);color:var(--acc-fg);display:grid;place-items:center;font:700 24px var(--font-display);font-style:normal}
 .pjc b{font:700 17px/1.25 var(--font-display);text-align:center;margin-top:12px}
@@ -544,7 +544,7 @@ a.nb{text-decoration:none;display:inline-block}
 .pjd,.pji{animation:pjin .45s ease both}
 @keyframes pjin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.pjc,.pjgi,.pjd,.pji,.pjempty{animation:none}.pjc,.pjci img,.pjgi img{transition:none}}
-@media (max-width:760px){.pjh{padding:18px}.pdd .dm a.nb{padding-left:14px}.pjl{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pjc{padding:10px 10px 14px}.pjlg{width:56px;height:56px;margin-top:-28px}.pjc b{font-size:14px}}
+@media (max-width:760px){.pjh{padding:18px}.pdd .dm a.nb{padding-left:14px}.pjl{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pjc{padding:10px 10px 14px}.pjlg{--lgs:80px}.pjc b{font-size:14px}}
 @media (max-width:420px){.pjg{gap:6px}.pjl{grid-template-columns:minmax(0,1fr)}}
 /* categories -> sub-projects -> details (3-column gallery: 3 on desktop and tablet, 2 on phones, 1 on very small screens) */
 .pjgi{aspect-ratio:4/3}
@@ -844,7 +844,7 @@ const S={
   arts:ARTICLES,
   vids:[],vidNav:true,gal:[],galNav:true,
   projs:[],projCats:PROJ_CATS_DEF(),projNav:true,
-  notes:[],unread:0,banner:'',homeBody:'',biz:{addr:'',phone:'',email:'',reg:'',fb:'',ig:'',yt:'',x:'',li:''},
+  notes:[],unread:0,banner:'',homeBody:'',homeIntro:'',biz:{addr:'',phone:'',email:'',reg:'',fb:'',ig:'',yt:'',x:'',li:''},
   seo:{tpl:'%page% | %site%',desc:'Property listings, calculators and Newsflash updates for plot owners and buyers in Lahore, Islamabad and Multan.',home:'',og:'',ads:'',head:''},
   perf:Object.assign({},PERF_DEF),
   faqCats:FAQ_CATS_DEF(),faqs:[],faqNav:true,wa:WA_DEF(),
@@ -855,7 +855,7 @@ const PRESETS=[{n:'White & green',a:0,bg:'#f6faf7',s:'#ffffff'},{n:'Pure white',
 const fgFor=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return '#ffffff';const n=parseInt(m[1],16),r=n>>16,g=(n>>8)&255,b=n&255;return (0.299*r+0.587*g+0.114*b)>160?'#0f1917':'#ffffff'};
 
 /* ---------- save / load (draft -> live) ---------- */
-const KEYS=['title','logo','logoImg','accent','accentCustom','siteBg','surface','nav','delay','slides','boxes','docs','pages','arts','vids','vidNav','gal','galNav','projs','projCats','projNav','seo','banner','homeBody','biz','notes','perf','faqCats','faqs','faqNav','wa'];
+const KEYS=['homeIntro','title','logo','logoImg','accent','accentCustom','siteBg','surface','nav','delay','slides','boxes','docs','pages','arts','vids','vidNav','gal','galNav','projs','projCats','projNav','seo','banner','homeBody','biz','notes','perf','faqCats','faqs','faqNav','wa'];
 const pick=()=>{fixFaqSlugs();const o={};KEYS.forEach(k=>o[k]=S[k]);return o};
 const snap=()=>JSON.stringify(pick());
 let SAVED=snap(),LASTSAVE=0,SESSION_SAVED=false,bT=null,AUTOSAVE=LS.get('maskan_autosave')!=='0';
@@ -1547,7 +1547,7 @@ function homeHTML(){
    <div class="dots">${S.slides.map((_,i)=>`<button class="dot" data-act="dot" data-i="${i}" aria-label="Slide ${i+1}"></button>`).join('')}</div></section>`:`<section class="u4 hero"><p class="sub">No slides yet. Add banner images in Admin &rsaquo; Hero slider.</p></section>`;
   const tools=S.boxes.map((b,i)=>{const L=!S.inline;return `<div class="tool">${L?`<a class="flip" href="${esc(pathOf('t:'+i))}" target="_blank" rel="noopener" data-act="newtab" data-r="t:${i}" aria-label="Open ${esc(b.title)} in a new tab">`:'<div class="flip">'}<div class="fi"><div class="ff"><h3 data-i="${i}" ${S.inline?'contenteditable="true" spellcheck="false" title="Edit title"':''}>${esc(b.title)}</h3></div><div class="fb" aria-hidden="true"><b>OPEN</b><span>&#8599;</span></div></div>${L?'</a>':'</div>'}</div>`}).join('');
   const latest=pubArts().filter(a=>a.home).slice(0,6),homeVids=pubVids().slice(0,3);
-  return `<h1 class="vh">${esc(S.title)} - ${esc(homeDesc())}</h1>`+hero+`<section><div class="sech"><h2>Property tools</h2></div><div class="tools">${tools}</div></section>
+  return `<h1 class="vh">${esc(S.title)} - ${esc(homeDesc())}</h1>`+hero+(String(S.homeIntro||'').trim()?`<section><div class="art home-intro">${rtBody(S.homeIntro)}</div></section>`:'')+`<section><div class="sech"><h2>Property tools</h2></div><div class="tools">${tools}</div></section>
   ${latest.length?`<section><div class="sech"><div><h2>Latest DHA Multan Newsflash</h2><p class="sub">Notices and updates, each with its own article page.</p></div><a class="btn" href="/newsflash" data-act="go" data-r="news">All Newsflash</a></div><div class="nl">${latest.map(cardHTML).join('')}</div></section>`:''}
   ${homeVids.length?`<section><div class="sech"><div><h2>Latest videos</h2><p class="sub">Watch our official videos right here on the site.</p></div><a class="btn" href="/videos" data-act="go" data-r="videos">All videos</a></div><div class="nl">${homeVids.map(vcardHTML).join('')}</div></section>`:''}
   ${pubGal().length?`<section><div class="sech"><div><h2>Photo gallery</h2><p class="sub">Recent photos from our work.</p></div><a class="btn" href="/gallery" data-act="go" data-r="gallery">All photos</a></div><div class="gg">${pubGal().slice(0,4).map(g=>`<figure class="gf"><a class="gi2" href="/gallery" data-act="go" data-r="gallery" aria-label="Open the gallery"><img src="${esc(g.img)}" alt="${esc(g.alt||g.t||S.title+' photo')}" ${P().lazyImg?'loading="lazy" decoding="async"':''}></a></figure>`).join('')}</div></section>`:''}
@@ -1808,7 +1808,7 @@ function mountHero(){
 }
 
 /* ---------- admin views ---------- */
-const SECS=[['custom','Site customizer'],['slider','Hero slider'],['tools','HTML tool boxes'],['boxadm','Box admin panels'],['docs','Documents'],['arts','Newsflash articles'],['pcats','Project categories'],['projs','Projects'],['vids','Video library'],['gal','Image gallery'],['pages','Pages'],['faqs','FAQs'],['wa','WhatsApp button'],['seo','Website SEO & AdSense'],['optim','Optimise & speed'],['check','Site check & AdSense'],['backups','Backups & history']];
+const SECS=[['custom','Site customizer'],['slider','Hero slider'],['tools','HTML tool boxes'],['boxadm','Box admin panels'],['docs','Documents'],['arts','Newsflash articles'],['pcats','Project categories'],['projs','Projects'],['vids','Video library'],['gal','Image gallery'],['pages','Pages'],['faqs','FAQs'],['wa','WhatsApp button'],['reviews','Reviews'],['seo','Website SEO & AdSense'],['optim','Optimise & speed'],['check','Site check & AdSense'],['backups','Backups & history']];
 const OWNER_ONLY=['acct','backups','seo'];
 const isOwner=()=>(S.role||'owner')==='owner';
 function field(l,path,val,o={}){const id='f-'+path.replace(/\./g,'-');return `<div class="f"><label for="${id}">${l}</label><input id="${id}" type="${o.type||'text'}" data-b="${path}" ${o.num?'data-num="1"':''} value="${esc(val)}" ${o.min!==undefined?`min="${o.min}"`:''} ${o.step?`step="${o.step}"`:''}></div>`}
@@ -2125,7 +2125,7 @@ function secPCats(){
     const auto='',u=c.img||'',lgs=safeImg(c.logo)||safeImg(S.logoImg)||'/logo.png';
     return `<div class="apn catrow"><div class="catl"><div class="apv">${u?`<img src="${esc(u)}" alt="">`:'No cover picture'}</div>
      <span class="note">${c.img?'Category cover picture':'Upload a cover picture for the card'}</span>
-     <div class="pjact"><label class="btn sm pri up">${c.img?'Replace cover':'Upload cover'}<input type="file" accept="image/*" data-pccov="${j}"></label>${c.img?`<button class="btn sm warn" data-act="pccovdel" data-i="${j}">Remove cover</button>`:''}</div><p class="note" id="pccst-${j}" role="status"></p><span class="u32 note">Round logo on this card (leave empty to use the site logo)</span><div class="u33 pjact"><img src="${esc(lgs)}" alt="" width="40" height="40" class="u34"><label class="btn sm up">${c.logo?'Replace card logo':'Upload card logo'}<input type="file" accept="image/*" data-pclogo="${j}"></label>${c.logo?`<button class="btn sm warn" data-act="pclogodel" data-i="${j}">Use site logo</button>`:''}</div><p class="note" id="pclst-${j}" role="status"></p></div>
+     <div class="pjact"><label class="btn sm pri up">${c.img?'Replace cover':'Upload cover'}<input type="file" accept="image/*" data-pccov="${j}"></label>${c.img?`<button class="btn sm warn" data-act="pccovdel" data-i="${j}">Remove cover</button>`:''}</div><p class="note" id="pccst-${j}" role="status"></p><span class="u32 note">Round logo on this card, saved as a 512\u00d7512 square (leave empty to use the site logo)</span><div class="u33 pjact"><img src="${esc(lgs)}" alt="" width="40" height="40" class="u34"><label class="btn sm up">${c.logo?'Replace card logo':'Upload card logo'}<input type="file" accept="image/*" data-pclogo="${j}"></label>${c.logo?`<button class="btn sm warn" data-act="pclogodel" data-i="${j}">Use site logo</button>`:''}</div><p class="note" id="pclst-${j}" role="status"></p></div>
      <div class="catr"><div class="g2"><div class="f"><label for="pcn${j}">Category name</label><input id="pcn${j}" type="text" data-b="projCats.${j}.name" data-pcname="${j}" value="${esc(c.name)}"></div>
      <div class="f"><label for="pcs${j}">Page address (/projects/…)</label><input id="pcs${j}" type="text" data-b="projCats.${j}.slug" data-slug="1" data-pcslug="${j}" value="${esc(c.slug)}"></div></div>
      <div class="f"><label for="pcd${j}">Short description (optional, shown on the category card and page)</label><textarea id="pcd${j}" data-b="projCats.${j}.sum" maxlength="200" class="u35">${esc(c.sum)}</textarea></div>
@@ -2160,7 +2160,7 @@ function secProjEdit(x){
   <div class="apn"><h3>Cover image <span class="u37 badge">CARD PICTURE</span></h3><p class="note">Shown on the sub-project card. It is separate from the gallery${x.cover?'.':'. No cover is set, so the first gallery picture is used.'}</p>
    <div class="apv">${projCover(x)?`<img src="${esc(projCover(x))}" alt="">`:'No cover picture'}</div>
    <div class="pjact"><label class="btn sm pri up">${x.cover?'Replace cover':'Upload cover'}<input type="file" accept="image/*" data-pjcov="1"></label>${x.cover?`<button class="btn sm warn" data-act="pjcovdel" data-i="${i}">Remove cover</button>`:''}</div><p class="note" id="pjcst" role="status"></p></div>
-  <div class="apn"><h3>Card logo <span class="u37 badge">ROUND BADGE</span></h3><p class="note">The round logo shown on this project's card. Leave it empty to use the site logo.</p>
+  <div class="apn"><h3>Card logo <span class="u37 badge">ROUND BADGE</span></h3><p class="note">The round logo shown on this project's card. Any picture works: it is saved as a 512\u00d7512 square (best: upload a square 512\u00d7512 or 192\u00d7192 picture). Leave it empty to use the site logo.</p>
    <div class="u33 pjact"><img src="${esc(safeImg(x.logo)||safeImg(S.logoImg)||'/logo.png')}" alt="" width="56" height="56" class="u34"><label class="btn sm pri up">${x.logo?'Replace card logo':'Upload card logo'}<input type="file" accept="image/*" data-pjlogo="1"></label>${x.logo?`<button class="btn sm warn" data-act="pjlogodel" data-i="${i}">Use site logo</button>`:''}</div><p class="note" id="pjlst" role="status"></p></div>
   <div class="apn"><h3>Gallery images <span class="u37 badge">${n} / ${PJ_MAX}</span></h3>
    <p class="note">These ${PJ_MIN} to ${PJ_MAX} pictures appear on the project page in a 3-column gallery; visitors click one to see it large. Drag a picture to reorder it, or use the arrows. ${gal}</p>
@@ -2270,6 +2270,19 @@ async function addGalPics(files){
   }
   render();toast(n+' photo'+(n>1?'s':'')+' added to the gallery.');
 }
+function fitSquare(file,size){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();r.onerror=()=>rej(new Error('Could not read '+file.name+'.'));
+    r.onload=()=>{const im=new Image();im.onerror=()=>rej(new Error(file.name+' is not a picture this browser can open. Use JPG, PNG or WebP.'));
+      im.onload=()=>{const sw=im.naturalWidth||im.width,sh=im.naturalHeight||im.height,k=Math.min(size/sw,size/sh),w=Math.max(1,Math.round(sw*k)),h=Math.max(1,Math.round(sh*k)),c=document.createElement('canvas');c.width=c.height=size;
+        const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,size,size);x.imageSmoothingQuality='high';x.drawImage(im,Math.round((size-w)/2),Math.round((size-h)/2),w,h);
+        let d=c.toDataURL('image/webp',.92);if(!/^data:image\/webp/.test(d))d=c.toDataURL('image/jpeg',.92);res(d)};
+      im.src=r.result};
+    r.readAsDataURL(file);
+  });
+}
+/* card logos (categories and sub-projects) are always saved as a 512x512 square, whole picture kept, centred */
+const cardLogoUpload=async f=>storePic(await fitSquare(f,512),f.name);
 const projUpload=async f=>f.type==='image/gif'?(await mdUploadBlob(f,f.name,false)).url:await storePic(await fitMax(f,2000),f.name);
 async function addProjPics(files){
   const x=curProj();if(!x)return;
@@ -2301,13 +2314,13 @@ async function replaceProjPic(k,f){
 async function setProjLogo(f){
   const x=curProj();if(!x)return;
   if(!/^image\//.test(f.type)){toast('Choose a picture (JPG, PNG or WebP).');return}
-  try{pstat('pjlst','Uploading logo\u2026');x.logo=await projUpload(f);render();toast('Card logo saved.')}
+  try{pstat('pjlst','Uploading logo\u2026');x.logo=await cardLogoUpload(f);render();toast('Card logo saved (512\u00d7512 square).')}
   catch(e){if(e.message!=='auth')pstat('pjlst',e.message||'Upload failed.',true);else pstat('pjlst','')}
 }
 async function setCatLogo(k,f){
   const c=S.projCats[k];if(!c)return;
   if(!/^image\//.test(f.type)){toast('Choose a picture (JPG, PNG or WebP).');return}
-  try{pstat('pclst-'+k,'Uploading logo\u2026');c.logo=await projUpload(f);render();toast('Card logo saved.')}
+  try{pstat('pclst-'+k,'Uploading logo\u2026');c.logo=await cardLogoUpload(f);render();toast('Card logo saved (512\u00d7512 square).')}
   catch(e){if(e.message!=='auth')pstat('pclst-'+k,e.message||'Upload failed.',true);else pstat('pclst-'+k,'')}
 }
 async function setCatCover(k,f){
@@ -2376,6 +2389,7 @@ function secSeo(){
   <div class="g2">${field('Title template (%page% and %site%)','seo.tpl',S.seo.tpl)}${field('AdSense publisher ID','seo.ads',S.seo.ads)}</div>
   <div class="f"><label for="sh1">Home page title (50-60 characters, include your main keywords)</label><input id="sh1" type="text" data-b="seo.home" data-seo="1" value="${esc(S.seo.home||'')}" placeholder="${esc(homeTitle())}"><span class="cnt">${homeTitle().length} characters</span></div>
   <div class="f"><label for="sd">Site description (120-160 characters)</label><input id="sd" type="text" data-b="seo.desc" data-seo="1" value="${esc(S.seo.desc)}"></div>
+  ${rtField('shi','Home page intro (formatted: bold, headings H1-H6, lists, links, tables). Shown at the top of the home page, under the slider. Leave empty to hide it. The Site description above stays plain text because Google shows it in search results.','homeIntro',S.homeIntro||'',140)}
   <h3 class="u50">Business &amp; contact details (shown in the site footer and sent to Google)</h3><p class="sub">Fill in only real details. Empty fields are not shown. Social links must start with https://</p>
   <div class="g2">${field('Business address','biz.addr',S.biz.addr)}${field('Phone / WhatsApp number','biz.phone',S.biz.phone)}</div>
   <div class="g2">${field('Contact email','biz.email',S.biz.email,{type:'email'})}${field('Registration / company number (if any)','biz.reg',S.biz.reg)}</div>
@@ -2409,7 +2423,7 @@ function loginHTML(){return `<form class="login" id="login" data-lform="1"><h2>A
    <div class="err" id="lerr" role="alert"></div><button class="btn pri" type="submit">Sign in</button></form>`}
 function adminHTML(){
   if(!S.admin)return loginHTML();
-  const m={custom:secCustom,slider:secSlider,tools:secTools,boxadm:secBoxAdm,optim:secOpt,docs:secDocs,arts:secArts,pcats:secPCats,projs:secProjs,vids:secVids,gal:secGal,pages:secPages,faqs:secFaqs,wa:secWA,seo:secSeo,bcast:secBcast,acct:secAcct,check:secCheck,backups:secBackups,media:secMedia,log:secLog,team:secTeam}[(!isOwner()&&OWNER_ONLY.includes(S.sec))||!SECS.some(x=>x[0]===S.sec)?'custom':S.sec];
+  const m={custom:secCustom,slider:secSlider,tools:secTools,boxadm:secBoxAdm,optim:secOpt,docs:secDocs,arts:secArts,pcats:secPCats,projs:secProjs,vids:secVids,gal:secGal,pages:secPages,faqs:secFaqs,wa:secWA,reviews:secReviews,seo:secSeo,bcast:secBcast,acct:secAcct,check:secCheck,backups:secBackups,media:secMedia,log:secLog,team:secTeam}[(!isOwner()&&OWNER_ONLY.includes(S.sec))||!SECS.some(x=>x[0]===S.sec)?'custom':S.sec];
   return `<div class="adm"><nav class="as" aria-label="Admin sections">${SECS.filter(([k])=>isOwner()||!OWNER_ONLY.includes(k)).map(([k,l])=>`<button data-act="sec" data-k="${k}" ${k===S.sec?'aria-current="true"':''}>${l}</button>`).join('')}</nav><div class="ac">${m()}</div></div>`;
 }
 
@@ -2941,7 +2955,7 @@ function render(){
   applyAccent();
   $('#tab-site').setAttribute('aria-selected',S.view==='site');$('#tab-admin').setAttribute('aria-selected',S.view==='admin');
   $('#frame').innerHTML=S.view==='site'?siteHTML():adminHTML();
-  if(S.view==='site'){mountHero();fillFrames('.tb iframe');fillFrames('.tfull iframe');fillPageFrames()}
+  if(S.view==='site'){mountHero();fillFrames('.tb iframe');fillFrames('.tfull iframe');fillPageFrames();try{mountReviews()}catch(_){}}
   else if(S.admin&&S.sec==='tools')fillFrames('#pvf');
   else if(S.admin&&S.sec==='boxadm')fillFrames('#bpf');
   renderCookie();
@@ -3380,6 +3394,126 @@ window.addEventListener('message',e=>{
 });
 if(BOOT&&BOOT.data){applyData(BOOT.data);REMOTE_AT=LASTSAVE=BOOT.savedAt||0;SAVED=snap()}
 syncFromURL();render();boot();
+
+/* ---------- visitor reviews: public section on every page + admin "Reviews" section ---------- */
+const RV={list:null,loading:false,fail:false,shown:6,rate:0,msg:'',err:false,sending:false};
+const RVA={list:null,loading:false,err:''};
+const rvStars=n=>'\u2605'.repeat(n)+'\u2606'.repeat(5-n);
+const rvDate=t=>t?new Date(+t).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}):'';
+(function(){const st=document.createElement('style');st.textContent=`
+.rv{max-width:880px;margin:40px auto;padding:0 18px}
+.rv h2{margin:0 0 6px;font:700 24px var(--font-display)}
+.rv .rvs{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);margin:0 0 16px}
+.rv .rvs b{font-size:28px;color:var(--ink,#111)}
+.rv .rst{color:#f5a623;letter-spacing:2px;white-space:nowrap}
+.rv .rvc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 10px}
+.rv .rvc p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv .rvc small{color:var(--muted)}
+.rv .rvf{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:18px;display:grid;gap:10px}
+.rv .rvf input[type=text],.rv .rvf textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.rv .rvf textarea{min-height:90px;resize:vertical}
+.rv .rpick{display:flex;gap:2px}
+.rv .rpick button{background:none;border:0;font-size:30px;line-height:1;cursor:pointer;color:#c9c9c9;padding:2px 4px}
+.rv .rpick button.on{color:#f5a623}
+.rv .rhp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.rv .rmsg{margin:0;font-size:14px;color:var(--acc)}.rv .rmsg.er{color:#c0392b}
+.rv .rmore{margin:6px 0 0}
+`;document.head.appendChild(st)})();
+function rvSummary(){
+  const l=RV.list||[];if(!l.length)return '<p class="rvs">No reviews yet. Be the first to share your experience.</p>';
+  const avg=l.reduce((a,x)=>a+(+x.rating||0),0)/l.length;
+  return `<p class="rvs"><b>${avg.toFixed(1)}</b><span class="rst" aria-hidden="true">${rvStars(Math.round(avg))}</span><span>${l.length} review${l.length===1?'':'s'}</span></p>`;
+}
+function rvListHTML(){
+  const l=RV.list||[],v=l.slice(0,RV.shown);
+  return v.map(x=>`<article class="rvc"><span class="rst" role="img" aria-label="${+x.rating} out of 5 stars">${rvStars(+x.rating||0)}</span> <b>${esc(x.name)}</b> <small>${esc(rvDate(x.created_at))}</small><p>${esc(x.text)}</p></article>`).join('')
+    +(l.length>RV.shown?'<p class="rmore"><button class="btn" type="button" data-rv="more">Show more reviews</button></p>':'');
+}
+function rvInner(){
+  return `<h2>Customer reviews</h2><div id="rvsum">${rvSummary()}</div><div id="rvlist">${rvListHTML()}</div>
+  <div class="rvf" role="group" aria-label="Write a review"><b>Write a review</b>
+   <div class="rpick" id="rvpick" role="radiogroup" aria-label="Your rating">${[1,2,3,4,5].map(n=>`<button type="button" data-rv="star" data-n="${n}" class="${RV.rate>=n?'on':''}" role="radio" aria-checked="${RV.rate===n}" aria-label="${n} star${n>1?'s':''}">\u2605</button>`).join('')}</div>
+   <input id="rv-n" type="text" maxlength="60" placeholder="Your name" autocomplete="name" aria-label="Your name">
+   <textarea id="rv-t" maxlength="1000" placeholder="Share your experience (at least 10 characters, no links)" aria-label="Your review"></textarea>
+   <div class="rhp" aria-hidden="true"><input id="rv-h" type="text" tabindex="-1" autocomplete="off" aria-label="Leave this empty"></div>
+   <button class="btn pri" type="button" data-rv="send">Post review</button><p class="rmsg" id="rvmsg" role="status"></p></div>`;
+}
+function rvRefresh(){
+  const a=document.getElementById('rvsum'),b=document.getElementById('rvlist');
+  if(a)a.innerHTML=rvSummary();if(b)b.innerHTML=rvListHTML();
+}
+async function rvLoad(){
+  if(RV.loading)return;RV.loading=true;
+  try{const r=await fetch('/api/reviews',{cache:'no-store'}),j=await r.json();if(!r.ok||!j.ok)throw 0;RV.list=j.reviews||[];RV.fail=false}
+  catch(_){RV.list=[];RV.fail=true}
+  RV.loading=false;
+  if(RV.fail){const s=document.getElementById('rvsec');if(s)s.remove()}else rvRefresh();
+}
+function mountReviews(){
+  if(S.view!=='site'||RV.fail)return;
+  const f=document.querySelector('#frame footer.ft');if(!f)return;
+  const old=document.getElementById('rvsec');if(old)old.remove();
+  const s=document.createElement('section');s.id='rvsec';s.className='rv';s.setAttribute('aria-label','Customer reviews');
+  s.innerHTML=rvInner();f.parentNode.insertBefore(s,f);
+  if(RV.list===null)rvLoad();
+}
+async function rvSend(){
+  if(RV.sending)return;
+  const n=document.getElementById('rv-n'),t=document.getElementById('rv-t'),h=document.getElementById('rv-h'),m=document.getElementById('rvmsg');if(!n||!t||!m)return;
+  const say=(x,er)=>{m.textContent=x;m.className='rmsg'+(er?' er':'')};
+  if(!RV.rate){say('Please choose a star rating.',true);return}
+  if(n.value.trim().length<2){say('Please enter your name.',true);return}
+  if(t.value.trim().length<10){say('Please write at least 10 characters.',true);return}
+  RV.sending=true;say('Sending\u2026');
+  try{
+    const r=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n.value,rating:RV.rate,text:t.value,page:location.pathname,hp:h?h.value:''})});
+    let j={};try{j=await r.json()}catch(_){}
+    if(!r.ok||!j.ok){say(j.error||'Could not send your review. Please try again.',true)}
+    else{t.value='';RV.rate=0;document.querySelectorAll('#rvpick button').forEach(b=>{b.classList.remove('on');b.setAttribute('aria-checked','false')});say('Thank you! Your review is now live.');RV.list=null;RV.shown=Math.max(RV.shown,6);RV.loading=false;await rvLoad()}
+  }catch(_){say('Could not send your review. Please check your connection.',true)}
+  RV.sending=false;
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('[data-rv]');if(!b)return;
+  const a=b.dataset.rv;
+  if(a==='star'){RV.rate=+b.dataset.n;document.querySelectorAll('#rvpick button').forEach(x=>{const on=+x.dataset.n<=RV.rate;x.classList.toggle('on',on);x.setAttribute('aria-checked',String(+x.dataset.n===RV.rate))})}
+  else if(a==='more'){RV.shown+=10;rvRefresh()}
+  else if(a==='send')rvSend();
+});
+async function rvaLoad(){
+  if(RVA.loading)return;RVA.loading=true;RVA.err='';
+  try{const r=await fetch('/api/reviews?all=1',{headers:{'X-Admin-Token':AUTH},cache:'no-store'}),j=await r.json().catch(()=>({}));
+    if(r.status===401){RVA.loading=false;signedOut('Please enter the admin key to see reviews.');return}
+    if(!r.ok||!j.ok)throw new Error(j.error||'Could not load reviews. Apply migration 0003 to the database.');
+    RVA.list=j.reviews||[]}
+  catch(e){RVA.list=[];RVA.err=e.message||'Could not load reviews.'}
+  RVA.loading=false;if(S.view==='admin'&&S.sec==='reviews')render();
+}
+function secReviews(){
+  if(RVA.list===null&&!RVA.loading)rvaLoad();
+  const l=RVA.list||[],pub=l.filter(x=>x.status==='published').length;
+  return `<h2>Reviews</h2><p class="sub">Visitors post reviews at the bottom of every public page. New reviews go live at once; hide or delete any review here. Hidden reviews stay saved but are not shown to visitors.</p>
+  <p class="note">${RVA.loading&&!l.length?'Loading\u2026':`${l.length} review${l.length===1?'':'s'} in total, ${pub} shown on the website, ${l.length-pub} hidden.`} <button class="btn sm" type="button" data-rva="refresh">Refresh</button></p>
+  ${RVA.err?`<p class="note" style="color:#c0392b">${esc(RVA.err)}</p>`:''}
+  ${l.map(x=>`<div class="apn"><h3><span style="color:#f5a623">${rvStars(+x.rating||0)}</span> ${esc(x.name)} <span class="badge">${x.status==='published'?'SHOWN':'HIDDEN'}</span></h3>
+   <p class="note">${esc(rvDate(x.created_at))} &middot; posted on ${esc(x.page||'/')}</p><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.text)}</p>
+   <div class="pjact"><button class="btn sm" type="button" data-rva="${x.status==='published'?'hide':'show'}" data-id="${+x.id}">${x.status==='published'?'Hide':'Show'}</button><button class="btn sm warn" type="button" data-rva="delete" data-id="${+x.id}">Delete</button></div></div>`).join('')||(RVA.loading?'':'<p class="sub">No reviews yet.</p>')}`;
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest&&e.target.closest('[data-rva]');if(!b)return;
+  const a=b.dataset.rva;
+  if(a==='refresh'){RVA.list=null;render();return}
+  const id=+b.dataset.id;if(!id)return;
+  if(a==='delete'&&!confirm('Delete this review for good?'))return;
+  try{
+    const r=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':AUTH},body:JSON.stringify({action:a,id})});
+    const j=await r.json().catch(()=>({}));
+    if(r.status===401){signedOut('Please enter the admin key.');return}
+    if(!r.ok||!j.ok){toast(j.error||'Could not change the review.');return}
+    if(a==='delete')RVA.list=(RVA.list||[]).filter(x=>+x.id!==id);else{const x=(RVA.list||[]).find(x=>+x.id===id);if(x)x.status=a==='hide'?'hidden':'published'}
+    RV.list=null;render();toast(a==='delete'?'Review deleted.':a==='hide'?'Review hidden.':'Review shown.');
+  }catch(_){toast('Could not reach the server.')}
+});
 </script>
 
 </body></html>

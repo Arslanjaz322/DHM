@@ -29,7 +29,7 @@ The HTML tool boxes' own admin tabs need the owner's username and password: add 
 - Never leave `DEBUG_ERRORS=1` set: it shows real error messages and stack traces. Without it the browser only
   gets a generic message and the details stay in the Worker log.
 - `CANONICAL_HOST` (optional): your main domain, for example `www.example.com`; other hosts are redirected there.
-- Apply database migrations: `npx wrangler d1 migrations apply <your-db-name> --remote` (0001 and 0002).
+- Apply database migrations: `npx wrangler d1 migrations apply <your-db-name> --remote` (0001, 0002 and 0003 — 0003 creates the reviews table).
 
 ## 4. What the code already does
 Streaming request-size limits; picture uploads checked by file header; video chunks tied to the declared size;
