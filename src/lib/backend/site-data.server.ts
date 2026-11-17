@@ -33,31 +33,18 @@ const MAX_IMPORT_TOOLS = 500;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- free-form site JSON
 type Json = any;
 
-// The built-in DHA Multan FAQs (see faq-seed.ts) fill any of the five standard categories that has no
-// questions yet. Categories that already have questions, and any extra categories (for example
-// "Property Tools"), are left exactly as saved. After the first publish from the admin the FAQs are saved
-// with the site and this no longer adds anything.
+// While the saved site has no FAQs, it starts with the built-in DHA Multan FAQs (see faq-seed.ts).
+// Once any FAQ exists (for example after the first publish from the admin) the saved FAQs are used as they are.
 export function withFaqSeed(d: Json): Json {
   if (!isObj(d)) return d;
-  const cats: Json[] = Array.isArray(d.faqCats) ? d.faqCats.filter((c: Json) => c && typeof c === "object").map((c: Json) => ({ ...c })) : [];
-  const faqs: Json[] = Array.isArray(d.faqs) ? d.faqs : [];
-  const add: Json[] = [];
-  let changed = false;
-  for (const def of FAQ_CATS_SEED) {
-    let cat = cats.find((c) => String(c.id) === def.id) || cats.find((c) => String(c.name).trim().toLowerCase() === def.name.toLowerCase());
-    if (!cat) {
-      cat = { ...def };
-      cats.push(cat);
-      changed = true;
-    }
-    if (faqs.some((f) => f && String(f.cat) === String(cat.id))) continue;
-    const have = new Set(faqs.map((f) => String(f?.q || "").trim().toLowerCase()));
-    for (const f of FAQ_SEED) {
-      if (f.cat === def.id && !have.has(f.q.toLowerCase())) add.push({ ...f, cat: String(cat.id) });
-    }
-  }
-  if (!add.length && !changed) return d;
-  return { ...d, faqCats: cats, faqs: [...faqs, ...add] };
+  if (Array.isArray(d.faqs) && d.faqs.length) return d;
+  const cats = Array.isArray(d.faqCats) ? (d.faqCats as Json[]) : [];
+  const haveAll = FAQ_CATS_SEED.every((c) => cats.some((x) => x && x.id === c.id));
+  return {
+    ...d,
+    faqCats: haveAll ? cats : FAQ_CATS_SEED.map((c) => ({ ...c })),
+    faqs: FAQ_SEED.map((f) => ({ ...f })),
+  };
 }
 
 export async function readSite(): Promise<{ data: Json; savedAt: number } | null> {
