@@ -2207,7 +2207,7 @@ function secFaqs(){
   S.faqs.forEach((f,i)=>{if(f.cat===S.ui.fqac)rows.push(i)});
   const cnt=id=>S.faqs.filter(f=>f.cat===id).length;
   return `<h2>FAQs</h2><p class="sub">Questions and answers shown on your website at <b>/faqs</b> and described to Google as an FAQ page. Pick a category, add questions and tick Published. Format each answer with the toolbar (bold, headings, lists, links), or paste text from Word or a web page.</p>
-  <div class="cols"><div class="pl">${cats.map((x,j)=>`<button data-act="fqac" data-id="${esc(x.id)}" aria-pressed="${x.id===S.ui.fqac}"><span id="fqcl-${j}">${esc(x.name||'Untitled')}</span><span class="badge">${cnt(x.id)}</span>${x.pub?'':'<span class="badge">HIDDEN</span>'}</button>`).join('')}<button class="btn pri" data-act="fqcadd">Add category</button></div>
+  <div class="cols"><div class="pl">${cats.map((x,j)=>`<button data-act="fqac" data-id="${esc(x.id)}" aria-pressed="${x.id===S.ui.fqac}"><span id="fqcl-${j}">${esc(x.name||'Untitled')}</span><span class="badge">${cnt(x.id)}</span>${x.pub?'':'<span class="badge">HIDDEN</span>'}</button>`).join('')}<button class="btn pri" data-act="fqcadd">Add category</button><button class="btn" data-act="fqseed" title="Adds the 5 DHA Multan FAQ categories and all 76 questions (questions already present are skipped)">Import DHA Multan FAQs</button></div>
   ${c?`<div class="u46">
    <div class="zbox"><div class="f"><label for="fqcn">Category name</label><input id="fqcn" type="text" data-b="faqCats.${ci}.name" data-live="fqcl-${ci}" value="${esc(c.name)}"></div>
    <div class="u43"><label class="chk"><input type="checkbox" data-b="faqCats.${ci}.pub" data-rr="1" ${c.pub?'checked':''}> Visible on the website</label><button class="btn sm" data-act="fqcup" data-i="${ci}" aria-label="Move category up">&uarr;</button><button class="btn sm" data-act="fqcdn" data-i="${ci}" aria-label="Move category down">&darr;</button><button class="btn sm warn" data-act="fqcdel" data-i="${ci}">Delete category</button></div></div>
@@ -3128,6 +3128,14 @@ document.addEventListener('click',e=>{
       S.ui.upd={i:S.ui.sel,name:'Box '+(j+1)+': '+src.title,code:String(src.code||'')};render();{const pn=document.getElementById('updpanel');if(pn&&pn.scrollIntoView)pn.scrollIntoView({block:'center',behavior:'smooth'})}break}
     case 'fqcat':S.ui.fqcat=a.dataset.id;S.ui.fqq='';{const s=$('#fqs');if(s)s.value=''}faqRefresh();break;
     case 'fqac':S.ui.fqac=a.dataset.id;render();break;
+    case 'fqseed':{
+      const names=FAQ_CATS_DEF().map(x=>x.name),idMap={};let addedC=0,addedQ=0;
+      names.forEach((nm,n)=>{let c=S.faqCats.find(x=>x.id==='fc'+(n+1)&&String(x.name).trim().toLowerCase()===nm.toLowerCase())||S.faqCats.find(x=>String(x.name).trim().toLowerCase()===nm.toLowerCase());
+        if(!c){c={id:nextFcId(),name:nm,pub:true};S.faqCats.push(c);addedC++}
+        c.pub=true;idMap['fc'+(n+1)]=c.id});
+      const have=new Set(S.faqs.map(f=>String(f.q).trim().toLowerCase()));
+      FAQ_SEED_DEF.forEach(f=>{if(!have.has(f.q.toLowerCase())){S.faqs.push(Object.assign({},f,{cat:idMap[f.cat]||f.cat}));addedQ++}});
+      S.ui.fqac=idMap.fc1;render();toast(addedQ?('Added '+addedQ+' FAQs'+(addedC?' and '+addedC+' categories':'')+'. Click Publish to save them.'):'All DHA Multan FAQs are already in your list.');break}
     case 'fqcadd':{const id=nextFcId();S.faqCats.push({id,name:'New category',pub:true});S.ui.fqac=id;render();setTimeout(()=>{const e=$('#fqcn');if(e){e.focus();e.select()}},0);break}
     case 'fqcdel':{const c=S.faqCats[i];if(c&&confirm('Delete the category \u201c'+c.name+'\u201d AND all its questions?')){S.faqs=S.faqs.filter(f=>f.cat!==c.id);S.faqCats.splice(i,1);S.ui.fqac='';render()}break}
     case 'fqcup':swap(S.faqCats,i,i-1);render();break;
