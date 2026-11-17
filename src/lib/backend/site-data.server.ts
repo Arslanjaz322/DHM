@@ -15,6 +15,7 @@ import {
   type Session,
 } from "./auth.server";
 import { d1 } from "./d1.server";
+import { FAQ_CATS_SEED, FAQ_SEED } from "./faq-seed";
 import { db, fail, json, now, readTextLimited, serverError, TOOL_KEY_RE, tooLarge } from "./util.server";
 
 const MAX_BYTES = 4.5 * 1024 * 1024; // largest request we accept at all
@@ -32,9 +33,23 @@ const MAX_IMPORT_TOOLS = 500;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- free-form site JSON
 type Json = any;
 
+// While the saved site has no FAQs, it starts with the built-in DHA Multan FAQs (see faq-seed.ts).
+// Once any FAQ exists (for example after the first publish from the admin) the saved FAQs are used as they are.
+export function withFaqSeed(d: Json): Json {
+  if (!isObj(d)) return d;
+  if (Array.isArray(d.faqs) && d.faqs.length) return d;
+  const cats = Array.isArray(d.faqCats) ? (d.faqCats as Json[]) : [];
+  const haveAll = FAQ_CATS_SEED.every((c) => cats.some((x) => x && x.id === c.id));
+  return {
+    ...d,
+    faqCats: haveAll ? cats : FAQ_CATS_SEED.map((c) => ({ ...c })),
+    faqs: FAQ_SEED.map((f) => ({ ...f })),
+  };
+}
+
 export async function readSite(): Promise<{ data: Json; savedAt: number } | null> {
   const { data } = await db().from("site_state").select("data, saved_at").eq("id", 1).maybeSingle();
-  return data ? { data: data.data as Json, savedAt: Number(data.saved_at) } : null;
+  return data ? { data: withFaqSeed(data.data as Json), savedAt: Number(data.saved_at) } : null;
 }
 
 // Short-lived in-memory copy of the site for public page views, so most visits skip the large database read
