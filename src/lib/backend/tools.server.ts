@@ -40,46 +40,11 @@ function safePath(p: string): string | null {
 }
 
 /* ---------- /api/tool-data ---------- */
-
-// Edge cache (Cloudflare Cache API, works on your own domain): popular tool files and rates are served from the
-// nearest Cloudflare data centre, so 500 visitors at once cost one database + storage read, not 500.
-// Failures are ignored: the page then simply loads without the cache.
-const edgeCache = (): Cache | null => {
-  try {
-    return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default ?? null;
-  } catch {
-    return null;
-  }
-};
-async function edgeGet(request: Request): Promise<Response | null> {
-  try {
-    return (await edgeCache()?.match(request)) ?? null;
-  } catch {
-    return null;
-  }
-}
-async function edgePut(request: Request, response: Response): Promise<void> {
-  try {
-    await edgeCache()?.put(request, response);
-  } catch {
-    /* cache is optional */
-  }
-}
-const EDGE_MAX_BYTES = 5 * 1024 * 1024;
-
 export async function toolDataGET(request: Request): Promise<Response> {
   const tool = new URL(request.url).searchParams.get("tool") || "";
   if (!TOOL_KEY_RE.test(tool)) return fail(400, "Missing tool.");
-  const canCache = request.method === "GET";
-  if (canCache) {
-    const hit = await edgeGet(request);
-    if (hit) return hit;
-  }
   const { data } = await db().from("tool_data").select("data").eq("tool", tool).maybeSingle();
-  // Saved rates reach every visitor within about 30 seconds.
-  const res = json({ ok: true, data: data?.data ?? null }, 200, { "cache-control": "public, max-age=30" });
-  if (canCache) await edgePut(request, res.clone());
-  return res;
+  return json({ ok: true, data: data?.data ?? null }, 200, { "access-control-allow-origin": "*" });
 }
 
 export async function toolDataPOST(request: Request): Promise<Response> {
@@ -107,13 +72,12 @@ export async function toolDataPOST(request: Request): Promise<Response> {
 }
 
 /* ---------- /api/tool-zip ---------- */
-// ZIP versions older than 24 hours that no live box, the site or any backup still mentions.
-// (Replaced versions stay for a day so visitors who opened the old tool before an update keep working.)
+// ZIP versions older than an hour that no live box, the site or any backup still mentions.
 async function unreferencedZips(live: Set<string>): Promise<{ id: string; v: string }[]> {
   const { data: zips } = await db().from("tool_zips").select("id, v, created_at");
   // At most 20 per run: every candidate costs one database query and a Worker request may only run a limited number.
   const cand = (zips || [])
-    .filter((z) => !live.has(`${z.id}.${z.v}`) && Number(z.created_at) < now() - 24 * 3600000)
+    .filter((z) => !live.has(`${z.id}.${z.v}`) && Number(z.created_at) < now() - 3600000)
     .slice(0, 20);
   if (!cand.length) return [];
   // Ask SQLite whether the site or any backup still mentions the ZIP. Loading every backup (up to ~2 MB
@@ -249,10 +213,6 @@ function isAdminPath(p: string, admin: AdminInfo): boolean {
   return (admin.dirs || []).some((d) => d && p.startsWith(d));
 }
 
-// Finished ZIP versions are immutable, so their entry/admin info is kept in this Worker's memory.
-type ZipInfo = { entry: string | null; admin: unknown };
-const zipMemo = new Map<string, ZipInfo>();
-
 export async function serveTool(request: Request, rest: string): Promise<Response> {
   const notFound = () =>
     new Response("Not found", { status: 404, headers: { "content-type": "text/plain", "access-control-allow-origin": "*" } });
@@ -269,22 +229,9 @@ export async function serveTool(request: Request, rest: string): Promise<Respons
   } catch {
     return notFound();
   }
-  // Public, whole-file requests (no admin ticket, no byte range) can come straight from the edge cache.
-  const cacheable = !ticket && request.method === "GET" && !request.headers.get("range");
-  if (cacheable) {
-    const hit = await edgeGet(request);
-    if (hit) return hit;
-  }
-  const zkey = `${id}.${v}`;
-  let z = zipMemo.get(zkey) ?? null;
-  if (!z) {
-    const { data } = await db().from("tool_zips").select("entry, admin, finalized").eq("id", id).eq("v", v).maybeSingle();
-    if (!data || !data.finalized) return notFound();
-    z = { entry: (data.entry as string | null) ?? null, admin: data.admin };
-    if (zipMemo.size >= 200) zipMemo.clear();
-    zipMemo.set(zkey, z);
-  }
-  if (!p) p = String(z.entry || "") || "index.html";
+  const { data: z } = await db().from("tool_zips").select("entry, admin, finalized").eq("id", id).eq("v", v).maybeSingle();
+  if (!z || !z.finalized) return notFound();
+  if (!p) p = z.entry || "index.html";
   if (!safePath(p)) return notFound();
 
   let ticketOk = false;
@@ -321,9 +268,96 @@ export async function serveTool(request: Request, rest: string): Promise<Respons
   // Public files may be read cross-origin (sandboxed tools have no origin); admin-ticket files may not.
   if (!ticket) h.set("access-control-allow-origin", "*");
   if (ticket) h.set("x-robots-tag", "noindex, nofollow");
-  const out = new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: h });
-  if (cacheable && r.status === 200 && Number(h.get("content-length") || EDGE_MAX_BYTES + 1) <= EDGE_MAX_BYTES) {
-    await edgePut(request, out.clone());
+  return new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: h });
+}
+
+
+/* ---------- HTML tool box as a real, standalone page (/tools/<box>) ---------- */
+// The uploaded HTML (pasted code or a ZIP's entry file) is sent straight to the visitor as the page itself:
+// no site shell, no iframe, no postMessage bridge. It keeps the sandbox CSP (it never runs with the site's origin).
+// ZIP files are loaded from /_tool/<id>.<v>/ (one-year immutable cache, any origin) through a <base> tag.
+const escA = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+const PAGE_SHIM =
+  '<script>(function(){try{localStorage.getItem("x")}catch(e){["localStorage","sessionStorage"].forEach(function(k){var m={};var st={getItem:function(a){return a in m?m[a]:null},setItem:function(a,v){m[a]=String(v)},removeItem:function(a){delete m[a]},clear:function(){m={}},key:function(i){return Object.keys(m)[i]||null}};Object.defineProperty(st,"length",{get:function(){return Object.keys(m).length}});try{Object.defineProperty(window,k,{value:st,configurable:true})}catch(x){}})}})()<\/script>';
+
+const HASH_FIX =
+  '<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href");if(!h||h.charAt(0)!=="#")return;e.preventDefault();if(h.length>1){var t=document.getElementById(decodeURIComponent(h.slice(1)));if(t)t.scrollIntoView()}else window.scrollTo(0,0)},true)<\/script>';
+
+const ADMIN_HIDE =
+  '<script>(function(){function sl(t){return(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}'
+  + 'function isA(el){var t=sl(el.textContent);if(t==="admin"||t==="admin-panel"||t==="admin-login"||t==="admin-area")return true;if(t)return false;var a=sl((el.getAttribute&&(el.getAttribute("aria-label")||el.getAttribute("title")))||"");return a==="admin"||/^admin[-_]?(btn|button|link|tab|toggle|open)?$/i.test(el.id||"")}'
+  + 'function tabs(){var out=[];function add(el){var t=(el.textContent||"").trim();if((t||isA(el))&&t.length<=24&&out.indexOf(el)<0)out.push(el)}'
+  + 'document.querySelectorAll("[role=tab],[data-tab],[data-view],[data-page],[class*=tab]>button,[class*=tab]>a,[class*=Tab]>button,[class*=Tab]>a").forEach(add);'
+  + 'document.querySelectorAll("button,a,[role=button]").forEach(function(el){if(isA(el))add(el)});return out}'
+  + 'function hide(){var l=tabs(),v=[];l.forEach(function(el){if(isA(el))el.style.setProperty("display","none","important");else v.push(el)});'
+  + 'if(v.length<2&&l.length>v.length)v.forEach(function(el){var p=el.parentElement;if(p&&Array.prototype.every.call(p.children,function(c){return l.indexOf(c)>=0}))p.style.setProperty("display","none","important")})}'
+  + 'new MutationObserver(hide).observe(document,{childList:true,subtree:true});document.addEventListener("DOMContentLoaded",hide);hide()})()<\/script>';
+
+function storeShim(origin: string, tool: string): string {
+  const url = JSON.stringify(origin + "/api/tool-data?tool=" + encodeURIComponent(tool));
+  return (
+    "<script>if(!window.toolStore)window.toolStore={load:function(){return fetch(" +
+    url +
+    ').then(function(r){return r.ok?r.json():null}).then(function(j){return j?j.data:null}).catch(function(){return null})},save:function(){return Promise.resolve(false)},siteLogin:function(){return Promise.resolve(false)},isAdmin:false};<\/script>'
+  );
+}
+
+function injectHead(html: string, head: string): string {
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + head);
+  if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, (m) => m + "<head>" + head + "</head>");
+  return '<!doctype html><html><head><meta charset="utf-8">' + head + "</head><body>" + html + "</body></html>";
+}
+
+export async function standaloneToolPage(
+  request: Request,
+  box: { code?: unknown; zip?: { id?: string; v?: string; entry?: string } | null },
+  tool: string,
+  meta: { title: string; desc: string; origin: string; path: string; dis?: string },
+): Promise<Response | null> {
+  let html = "";
+  let base = "";
+  const z = box.zip;
+  if (z && ZID.test(String(z.id || "")) && ZV.test(String(z.v || "")) && z.entry) {
+    const entry = String(z.entry);
+    if (!/\.html?$/i.test(entry)) return null;
+    const r = await serveTool(new Request(request.url), `${z.id}.${z.v}/${entry.split("/").map(encodeURIComponent).join("/")}`);
+    if (!r.ok) {
+      r.body?.cancel();
+      return null;
+    }
+    html = await r.text();
+    const dir = entry.includes("/") ? entry.slice(0, entry.lastIndexOf("/") + 1) : "";
+    base = `/_tool/${z.id}.${z.v}/` + dir.split("/").filter(Boolean).map(encodeURIComponent).join("/") + (dir ? "/" : "");
+  } else if (typeof box.code === "string" && box.code.trim()) {
+    html = box.code;
+  } else return null;
+
+  let head = "";
+  if (base) head += `<base href="${escA(base)}">`;
+  if (!/<meta[^>]+charset/i.test(html)) head += '<meta charset="utf-8">';
+  if (!/<meta[^>]+name=["']?viewport/i.test(html)) head += '<meta name="viewport" content="width=device-width,initial-scale=1">';
+  if (!/<title[\s>]/i.test(html)) head += `<title>${escA(meta.title)}</title>`;
+  if (meta.desc && !/<meta[^>]+name=["']?description/i.test(html)) head += `<meta name="description" content="${escA(meta.desc)}">`;
+  head += `<link rel="canonical" href="${escA(meta.origin + meta.path)}">`;
+  head += PAGE_SHIM + storeShim(meta.origin, tool) + ADMIN_HIDE + (base ? HASH_FIX : "");
+  html = injectHead(html, head);
+  if (!/^\s*<!doctype/i.test(html)) html = "<!doctype html>" + html;
+  const dis = String(meta.dis || "").trim();
+  if (dis) {
+    const note = `<p style="max-width:900px;margin:24px auto;padding:0 16px 24px;font:13px/1.5 system-ui,sans-serif;color:#555"><b>Disclaimer:</b> ${escA(dis)}</p>`;
+    const i = html.toLowerCase().lastIndexOf("</body>");
+    html = i >= 0 ? html.slice(0, i) + note + html.slice(i) : html + note;
   }
-  return out;
+
+  return new Response(request.method === "HEAD" ? null : html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "content-security-policy": SANDBOX,
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "cache-control": "public, max-age=60, stale-while-revalidate=600",
+    },
+  });
 }

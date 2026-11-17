@@ -37,23 +37,6 @@ export async function readSite(): Promise<{ data: Json; savedAt: number } | null
   return data ? { data: data.data as Json, savedAt: Number(data.saved_at) } : null;
 }
 
-// Short-lived in-memory copy of the site for public page views, so most visits skip the large database read
-// (the main cost of a slow first response). Admin reads/writes always use readSite() and see fresh data; a save
-// clears this copy in the same Worker instance, other instances catch up within SITE_CACHE_MS.
-const SITE_CACHE_MS = 15_000;
-let siteCache: { at: number; value: { data: Json; savedAt: number } | null } | null = null;
-
-export function invalidateSiteCache(): void {
-  siteCache = null;
-}
-
-export async function readSiteCached(): Promise<{ data: Json; savedAt: number } | null> {
-  if (siteCache && Date.now() - siteCache.at < SITE_CACHE_MS) return siteCache.value;
-  const value = await readSite();
-  siteCache = { at: Date.now(), value };
-  return value;
-}
-
 async function trimBackups() {
   for (const [auto, keep] of [
     [true, KEEP_AUTO],
@@ -93,7 +76,6 @@ async function writeSite(data: Json, by: string, prevAt = 0): Promise<number> {
   const savedAt = Math.max(now(), prevAt + 1);
   const { error } = await db().from("site_state").upsert({ id: 1, data, saved_at: savedAt, updated_by: by });
   if (error) throw new Error(error.message);
-  invalidateSiteCache();
   return savedAt;
 }
 
@@ -157,7 +139,6 @@ async function writeSiteIfUnchanged(data: Json, by: string, prevAt: number | nul
           .prepare("UPDATE site_state SET data = ?, saved_at = ?, updated_by = ? WHERE id = 1 AND saved_at = ?")
           .bind(text, savedAt, by, prevAt);
   const r = await stmt.run();
-  invalidateSiteCache();
   return (r.meta?.changes ?? 0) > 0 ? savedAt : null;
 }
 

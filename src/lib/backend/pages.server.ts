@@ -3,7 +3,8 @@
 import siteHtml from "@/legacy/site.html?raw";
 import { categoryCover, projectCategories, projectCover, projectPath, projectSitemapPaths, publishedProjects } from "./projects.server";
 import { adminKeyConfigured } from "./auth.server";
-import { publicView, readSiteCached } from "./site-data.server";
+import { publicView, readSite } from "./site-data.server";
+import { standaloneToolPage } from "./tools.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- free-form site JSON
 type Json = any;
@@ -32,20 +33,13 @@ function absImg(u: unknown, origin: string): string {
   return "";
 }
 
-const HOME_KEYWORDS = "DHA Multan Development Charges & Plot Owners";
-const HOME_DESC =
-  "DHA Multan development charges, relief scheme 2026 updates and plot prices. Free calculators, property news and guides for plot owners in Multan.";
-
 type Meta = { title: string; desc: string; type?: string | undefined; img?: string | undefined; robots?: string | undefined };
 
 function pageMeta(d: Json, path: string, origin: string): Meta {
   const title = String(d.title || "Maskan Estates");
   const seo = (d.seo || {}) as Json;
   const tpl = (t: string) => String(seo.tpl || "%page% | %site%").replace("%page%", t).replace("%site%", title);
-  // Home title: admin field if set, else site name + keywords when the name alone is too short (ideal: 50-60 characters).
-  const homeTitle = String(seo.home || "").trim() || (title.length >= 50 ? title : `${title} | ${HOME_KEYWORDS}`);
-  const siteDesc = String(seo.desc || "").trim() || HOME_DESC;
-  const def: Meta = { title: homeTitle, desc: siteDesc, img: absImg(seo.og, origin) };
+  const def: Meta = { title, desc: String(seo.desc || ""), img: absImg(seo.og, origin) };
   const segs = path.split("/").filter(Boolean).map((s) => {
     try {
       return decodeURIComponent(s);
@@ -88,7 +82,15 @@ function pageMeta(d: Json, path: string, origin: string): Meta {
     const q = (d.faqs || []).find((x: Json) => x && x.hide === true && x.pub !== false && x.slug === b && faqText(x.a));
     if (q) return { ...def, title: tpl(String(q.q)), desc: faqText(q.a).replace(/\s+/g, " ").slice(0, 155) || def.desc };
   }
-  if (a === "faqs") return { ...def, title: tpl("FAQs"), desc: `Answers to frequently asked questions from ${title}.` };
+  if (a === "faqs") {
+    const names = (d.faqCats || []).filter((c: Json) => c && c.pub !== false && String(c.name || "").trim()).map((c: Json) => String(c.name).trim());
+    let desc = `Answers to frequently asked questions from ${title}.`;
+    if (names.length) {
+      const list = names.slice(0, 4).map((n: string) => n.charAt(0) + n.slice(1).toLowerCase()).join(", ");
+      desc = `Answers to frequently asked questions about ${list} and property tools from ${title}.`.slice(0, 158);
+    }
+    return { ...def, title: tpl("FAQs"), desc };
+  }
   if (a === "doc") return { ...def, title: tpl("Documents"), desc: `Property checklists and document templates from ${title}.` };
   if (a === "featured" && b) {
     const f = (d.slides || []).find((x: Json) => x.slug === b);
@@ -155,23 +157,6 @@ function faqJsonLd(d: Json, only?: string): string {
   return JSON.stringify(ld).replace(/</g, "\\u003c");
 }
 
-const HOME_FAQ_DEF: [string, string][] = [["What is Dhamultan?", "Dhamultan is an independent information website for plot owners, buyers and investors who follow DHA Multan. It offers plain-language news summaries, free calculators and checklists."], ["Is Dhamultan the official DHA Multan website?", "No. Dhamultan is not DHA Multan and does not sell plots. Always confirm important details, fees and deadlines with the society office."], ["Where can I find DHA Multan development charges and relief scheme updates?", "Open the Newsflash page. Each update summarises a public notice and links to the issuing source, so you can check the dates and conditions yourself."], ["Are the calculators on this site accurate?", "They give estimates only. Final figures for transfer costs, instalments or area depend on the society, the relevant government office or your bank, so confirm them in writing."], ["What should I check before buying or transferring a plot?", "Check the allotment or ownership papers against the society record, confirm all dues and development charges are cleared, verify the plot size and category, and keep a receipt for every payment made through official channels."]];
-
-/** Home page Q&A markup: the first 5 published FAQs, or the built-in answers (must match what site.html shows on the home page). */
-function homeFaqJsonLd(d: Json): string {
-  const ok = new Set((d.faqCats || []).filter((c: Json) => c && c.pub !== false).map((c: Json) => String(c.id)));
-  let qa: [string, string][] = (d.faqs || [])
-    .filter((f: Json) => f && f.pub !== false && ok.has(String(f.cat)) && String(f.q || "").trim() && faqText(f.a) && f.hide !== true)
-    .slice(0, 5)
-    .map((f: Json): [string, string] => [String(f.q).trim(), faqText(f.a)]);
-  if (!qa.length) qa = HOME_FAQ_DEF;
-  return ldScript({
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: qa.map(([name, text]) => ({ "@type": "Question", name, acceptedAnswer: { "@type": "Answer", text } })),
-  });
-}
-
 const normPath = (p: string): string => p.replace(/\/+$/, "") || "/";
 
 const ldScript = (o: unknown): string => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
@@ -217,18 +202,6 @@ function siteJsonLd(d: Json, origin: string): string[] {
   const logo = absImg(d.logoImg, origin) || origin + "/logo.png";
   const desc = String(d.seo?.desc || "").trim();
   const orgId = origin + "/#organization";
-  // Real contact details entered in the admin (Website SEO > Business & contact details).
-  const b = (d.biz || {}) as Json;
-  const addr = String(b.addr || "").trim();
-  const tel = String(b.phone || "").replace(/[^\d+]/g, "");
-  const email = String(b.email || "").trim();
-  const same = [b.fb, b.ig, b.yt, b.li, b.x].map((u) => String(u || "").trim()).filter((u) => /^https?:\/\/[^\s"<>]+$/.test(u));
-  const contact = {
-    ...(addr ? { address: { "@type": "PostalAddress", streetAddress: addr } } : {}),
-    ...(tel.length >= 5 ? { telephone: tel } : {}),
-    ...(/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(email) ? { email } : {}),
-    ...(same.length ? { sameAs: same } : {}),
-  };
   return [
     ldScript({
       "@context": "https://schema.org",
@@ -238,7 +211,6 @@ function siteJsonLd(d: Json, origin: string): string[] {
       url: origin + "/",
       logo: { "@type": "ImageObject", url: logo },
       ...(desc ? { description: desc } : {}),
-      ...contact,
     }),
     ldScript({
       "@context": "https://schema.org",
@@ -353,14 +325,7 @@ function seoHead(d: Json, path: string, origin: string, known = true): string {
     }
     if (typeof seo.head === "string" && seo.head.trim()) out.push(seo.head);
     const fp = cpath;
-    if (fp === "/") out.push(...siteJsonLd(d, origin), homeFaqJsonLd(d));
-    // Start downloading the first hero picture straight from the HTML head instead of waiting for the page script
-    // to build the slider (improves Largest Contentful Paint). Skipped when the owner turned "hero picture first" off.
-    if (fp === "/" && (d.perf as Json | undefined)?.heroPreload !== false) {
-      const first = ((d.slides || []) as Json[])[0];
-      const src = first && typeof first.img === "string" ? absImg(first.img, origin) : "";
-      if (src) out.push(`<link rel="preload" as="image" href="${esc(src)}" fetchpriority="high">`);
-    }
+    if (fp === "/") out.push(...siteJsonLd(d, origin));
     out.push(breadcrumbJsonLd(d, fp, origin), articleJsonLd(d, fp, origin));
     if (fp === "/faqs" || fp.startsWith("/faqs/")) {
       const ld = faqJsonLd(d, fp === "/faqs" ? undefined : safeDecode(fp.slice(6)));
@@ -371,7 +336,7 @@ function seoHead(d: Json, path: string, origin: string, known = true): string {
 }
 
 const DEFAULT_TAGS =
-  '<meta name="robots" content="index,follow,max-image-preview:large">\n<meta property="og:type" content="website">\n<meta property="og:title" content="DHA Multan Development Charges &amp; Plot Owners | Dhamultan">\n<meta property="og:description" content="DHA Multan development charges, relief scheme 2026 updates and plot prices. Free calculators, property news and guides for plot owners in Multan.">\n<meta name="twitter:card" content="summary">';
+  '<meta name="robots" content="index,follow,max-image-preview:large">\n<meta property="og:type" content="website">\n<meta property="og:title" content="Maskan Estates">\n<meta property="og:description" content="Property listings, calculators and Newsflash updates for plot owners and buyers in Pakistan.">\n<meta name="twitter:card" content="summary">';
 
 /**
  * Optional: set the CANONICAL_HOST variable in Cloudflare (for example www.dhamultan.online) and every
@@ -388,8 +353,6 @@ export function hostRedirect(request: Request): Response | null {
   return Response.redirect(url.toString(), 301);
 }
 
-let bootMemo: { key: string; view: Json; boot: string } | null = null;
-
 export async function renderSite(request: Request): Promise<Response> {
   const moved = hostRedirect(request);
   if (moved) return moved;
@@ -397,9 +360,9 @@ export async function renderSite(request: Request): Promise<Response> {
   const origin = url.origin;
   const path = url.pathname;
   let html = siteHtml;
-  let site: Awaited<ReturnType<typeof readSiteCached>> = null;
+  let site: Awaited<ReturnType<typeof readSite>> = null;
   try {
-    site = await readSiteCached();
+    site = await readSite();
   } catch (e) {
     console.error("could not read site data", e);
   }
@@ -407,25 +370,21 @@ export async function renderSite(request: Request): Promise<Response> {
   // Once ADMIN_KEY is set, the HTML only ever carries the published copy of the site (no drafts); the admin
   // page then loads the full copy itself, sending the key (a page navigation cannot carry it).
   const locked = adminKeyConfigured();
-  // The visitor copy of the site and its JSON text are built once per saved version and reused by every
-  // visitor on this Worker instance (stringifying up to ~1.9 MB on each page view is what costs CPU time).
-  let memoBoot = "";
-  let view: Json = null;
-  if (site?.data) {
-    const key = site.savedAt + "|" + (locked ? 1 : 0);
-    if (!bootMemo || bootMemo.key !== key) {
-      const v: Json = locked ? publicView(site.data) : site.data;
-      const boot = JSON.stringify({ data: v, savedAt: site.savedAt })
-        .replace(/</g, "\\u003c")
-        .replace(/\u2028/g, "\\u2028")
-        .replace(/\u2029/g, "\\u2029");
-      bootMemo = { key, view: v, boot };
-    }
-    view = bootMemo.view;
-    memoBoot = bootMemo.boot;
-  }
+  const view: Json = site?.data ? (locked ? publicView(site.data) : site.data) : null;
   // Unknown addresses get a real 404 status (only when the site data could be read, so a database hiccup never 404s real pages).
   const known = !view || isKnownPath(view, path);
+
+  // An HTML tool box opens as the uploaded page itself (no site shell, no iframe): fastest possible load.
+  const tm = view && known ? /^\/tools\/([^/]+)\/?$/.exec(path) : null;
+  if (view && tm) {
+    const want = safeDecode(tm[1]!);
+    const box = (view.boxes || []).find((x: Json) => slugify(String(x.title || "")) === want);
+    if (box) {
+      const m = pageMeta(view, "/tools/" + want, origin);
+      const page = await standaloneToolPage(request, box, want, { title: m.title, desc: m.desc, origin, path: "/tools/" + want, dis: String(box.dis || "") });
+      if (page) return page;
+    }
+  }
 
   html = html.replace(
     "</title>",
@@ -438,7 +397,10 @@ export async function renderSite(request: Request): Promise<Response> {
       .replace(/<meta name="description" content="[^"]*">/, () => `<meta name="description" content="${esc(m.desc)}">`)
       .replace("<!--SEO-HEAD-->", () => seoHead(view, path, origin, known))
       .replace("<body>", () => "<body>" + (known && !isAdmin ? crawlNav(view) : ""));
-    const boot = memoBoot;
+    const boot = JSON.stringify({ data: view, savedAt: site!.savedAt })
+      .replace(/</g, "\\u003c")
+      .replace(/\u2028/g, "\\u2028")
+      .replace(/\u2029/g, "\\u2029");
     // The locked admin page gets no embedded copy at all: it fetches the full site with the key.
     html = html.replace("<!--SITE-DATA-->", () => (locked && isAdmin ? "" : `<script id="site-boot" type="application/json">${boot}</script>`));
   } else {
@@ -466,7 +428,7 @@ export async function renderSitemap(request: Request): Promise<Response> {
   const moved = hostRedirect(request);
   if (moved) return moved;
   const origin = new URL(request.url).origin;
-  const site = await readSiteCached().catch(() => null);
+  const site = await readSite().catch(() => null);
   const d = (site?.data ? (adminKeyConfigured() ? publicView(site.data) : site.data) : {}) as Json;
   // path -> last-modified date (only where the site really records one)
   const paths = new Map<string, string | undefined>();
@@ -501,52 +463,6 @@ export function renderRobots(request: Request): Response {
   const origin = new URL(request.url).origin;
   const body = ["User-agent: *", "Allow: /", "Disallow: /admin", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
   return new Response(request.method === "HEAD" ? null : body, {
-    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
-  });
-}
-
-/**
- * /llms.txt: a short markdown guide for AI crawlers (site summary + links to the main published pages).
- * Built per request from the published site so the links always carry the live domain.
- */
-export async function renderLlms(request: Request): Promise<Response> {
-  const moved = hostRedirect(request);
-  if (moved) return moved;
-  const origin = new URL(request.url).origin;
-  const site = await readSiteCached().catch(() => null);
-  const d = (site?.data ? (adminKeyConfigured() ? publicView(site.data) : site.data) : {}) as Json;
-  const name = String(d.title || "Dhamultan");
-  const seo = (d.seo || {}) as Json;
-  const summary = String(seo.desc || "").trim() || HOME_DESC;
-  const line = (t: unknown, p: string, note?: string) => {
-    const label = String(t || "").replace(/[\[\]\r\n]+/g, " ").trim() || p;
-    const n = note ? `: ${String(note).replace(/\s+/g, " ").trim().slice(0, 140)}` : "";
-    return `- [${label}](${origin}${encodeURI(p)})${n}`;
-  };
-  const out: string[] = [`# ${name}`, "", `> ${summary}`, "", `${name} is an independent information website. It is not the official DHA Multan website and does not sell plots. Confirm important details with the society office.`, "", "## Main pages", ""];
-  out.push(line("Home", "/", "Property tools, latest Newsflash and guides"));
-  out.push(line("Newsflash", "/newsflash", "Summaries of public notices, with links to the issuing source"));
-  if ((d.faqs || []).some((f: Json) => f && f.pub !== false && f.hide !== true && String(f.q || "").trim() && faqText(f.a))) out.push(line("FAQs", "/faqs", "Answers to common questions"));
-  out.push(line("Documents", "/doc", "Property checklists and document templates"));
-  if ((d.vids || []).some((v: Json) => v && v.pub && v.url)) out.push(line("Videos", "/videos"));
-  if ((d.gal || []).some((g: Json) => g && g.pub && g.img)) out.push(line("Gallery", "/gallery"));
-  const tools = (d.boxes || []).filter((b: Json) => b && b.title);
-  if (tools.length) {
-    out.push("", "## Calculators and tools", "");
-    for (const b of tools.slice(0, 30)) out.push(line(b.title, "/tools/" + slugify(String(b.title)), plain(b.dis).slice(0, 120)));
-  }
-  const arts = (d.arts || []).filter((x: Json) => x && x.pub && x.slug).slice(0, 30);
-  if (arts.length) {
-    out.push("", "## Latest Newsflash articles", "");
-    for (const a of arts) out.push(line(a.title, "/newsflash/" + a.slug, a.sum));
-  }
-  const pages = (d.pages || []).filter((p: Json) => p && p.pub && p.kind !== "link" && p.slug);
-  if (pages.length) {
-    out.push("", "## About and policies", "");
-    for (const p of pages) out.push(line(p.title, "/" + p.slug));
-  }
-  out.push("", "## Optional", "", `- [Sitemap](${origin}/sitemap.xml)`, "");
-  return new Response(request.method === "HEAD" ? null : out.join("\n"), {
     headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
   });
 }

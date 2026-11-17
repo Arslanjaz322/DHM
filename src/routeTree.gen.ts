@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
-import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
 import { Route as ApiSiteDataRouteImport } from './routes/api/site-data'
 import { Route as ApiToolDataRouteImport } from './routes/api/tool-data'
 import { Route as ApiToolZipRouteImport } from './routes/api/tool-zip'
@@ -30,11 +29,6 @@ const SplatRoute = SplatRouteImport.update({
 const ApiMediaRoute = ApiMediaRouteImport.update({
   id: '/api/media',
   path: '/api/media',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiReviewsRoute = ApiReviewsRouteImport.update({
-  id: '/api/reviews',
-  path: '/api/reviews',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSiteDataRoute = ApiSiteDataRouteImport.update({
@@ -57,7 +51,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/media': typeof ApiMediaRoute
-  '/api/reviews': typeof ApiReviewsRoute
   '/api/site-data': typeof ApiSiteDataRoute
   '/api/tool-data': typeof ApiToolDataRoute
   '/api/tool-zip': typeof ApiToolZipRoute
@@ -66,7 +59,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/media': typeof ApiMediaRoute
-  '/api/reviews': typeof ApiReviewsRoute
   '/api/site-data': typeof ApiSiteDataRoute
   '/api/tool-data': typeof ApiToolDataRoute
   '/api/tool-zip': typeof ApiToolZipRoute
@@ -76,7 +68,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/api/media': typeof ApiMediaRoute
-  '/api/reviews': typeof ApiReviewsRoute
   '/api/site-data': typeof ApiSiteDataRoute
   '/api/tool-data': typeof ApiToolDataRoute
   '/api/tool-zip': typeof ApiToolZipRoute
@@ -87,7 +78,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/api/media'
-    | '/api/reviews'
     | '/api/site-data'
     | '/api/tool-data'
     | '/api/tool-zip'
@@ -96,7 +86,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/api/media'
-    | '/api/reviews'
     | '/api/site-data'
     | '/api/tool-data'
     | '/api/tool-zip'
@@ -105,7 +94,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/api/media'
-    | '/api/reviews'
     | '/api/site-data'
     | '/api/tool-data'
     | '/api/tool-zip'
@@ -115,7 +103,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   ApiMediaRoute: typeof ApiMediaRoute
-  ApiReviewsRoute: typeof ApiReviewsRoute
   ApiSiteDataRoute: typeof ApiSiteDataRoute
   ApiToolDataRoute: typeof ApiToolDataRoute
   ApiToolZipRoute: typeof ApiToolZipRoute
@@ -142,13 +129,6 @@ declare module '@tanstack/react-router' {
       path: '/api/media'
       fullPath: '/api/media'
       preLoaderRoute: typeof ApiMediaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/reviews': {
-      id: '/api/reviews'
-      path: '/api/reviews'
-      fullPath: '/api/reviews'
-      preLoaderRoute: typeof ApiReviewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/site-data': {
@@ -179,7 +159,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   ApiMediaRoute: ApiMediaRoute,
-  ApiReviewsRoute: ApiReviewsRoute,
   ApiSiteDataRoute: ApiSiteDataRoute,
   ApiToolDataRoute: ApiToolDataRoute,
   ApiToolZipRoute: ApiToolZipRoute,
