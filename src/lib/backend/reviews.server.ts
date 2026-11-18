@@ -21,6 +21,13 @@ const clean = (s: unknown, max: number) =>
     .trim()
     .slice(0, max);
 
+// The D1 query builder never throws: it returns { error }. Without this check a missing table (migration 0003
+// not applied) looked like "no reviews" and "Thank you, your review is live" while nothing was saved.
+function must<T extends { error: { message: string } | null }>(res: T): T {
+  if (res.error) throw new Error(res.error.message + " (is migration 0003_reviews.sql applied?)");
+  return res;
+}
+
 export type ReviewInput = { name: string; rating: number; text: string; page: string };
 
 /** Validates a public review; returns the cleaned values or an error message for the visitor. */
@@ -43,19 +50,23 @@ export async function reviewsGET(request: Request): Promise<Response> {
     if (all) {
       const s = await getSession(request);
       if (!s) return fail(401, "Not signed in.");
-      const { data } = await db()
-        .from("reviews")
-        .select("id,name,rating,text,page,status,created_at")
-        .order("id", { ascending: false })
-        .limit(2000);
+      const { data } = must(
+        await db()
+          .from("reviews")
+          .select("id,name,rating,text,page,status,created_at")
+          .order("id", { ascending: false })
+          .limit(2000),
+      );
       return json({ ok: true, reviews: data || [] });
     }
-    const { data } = await db()
-      .from("reviews")
-      .select("id,name,rating,text,created_at")
-      .eq("status", "published")
-      .order("id", { ascending: false })
-      .limit(MAX_LIST);
+    const { data } = must(
+      await db()
+        .from("reviews")
+        .select("id,name,rating,text,created_at")
+        .eq("status", "published")
+        .order("id", { ascending: false })
+        .limit(MAX_LIST),
+    );
     return json({ ok: true, reviews: data || [] }, 200, { "cache-control": "no-cache" });
   } catch (e) {
     console.error("reviews GET failed", e);
@@ -83,9 +94,9 @@ export async function reviewsPOST(request: Request): Promise<Response> {
       if (!(id > 0)) return fail(400, "Missing review.");
       const action = String(b["action"]);
       if (action === "hide" || action === "show") {
-        await db().from("reviews").update({ status: action === "hide" ? "hidden" : "published" }).eq("id", id);
+        must(await db().from("reviews").update({ status: action === "hide" ? "hidden" : "published" }).eq("id", id));
       } else if (action === "delete") {
-        await db().from("reviews").delete().eq("id", id);
+        must(await db().from("reviews").delete().eq("id", id));
       } else {
         return fail(400, "Unknown action.");
       }
@@ -100,12 +111,12 @@ export async function reviewsPOST(request: Request): Promise<Response> {
 
     const t = now();
     const key = "rv:" + (await sha256Hex(fullIp(request))).slice(0, 32);
-    const { count } = await db().from("login_attempts").select("id", { count: "exact", head: true }).eq("key", key).gt("at", t - RATE_WINDOW);
+    const { count } = must(await db().from("login_attempts").select("id", { count: "exact", head: true }).eq("key", key).gt("at", t - RATE_WINDOW));
     if ((count || 0) >= RATE_MAX) return fail(429, "You have sent several reviews already. Please try again later.");
-    await db().from("login_attempts").insert({ key, at: t });
+    must(await db().from("login_attempts").insert({ key, at: t }));
     await db().from("login_attempts").delete().lt("at", t - 24 * 60 * 60 * 1000);
 
-    await db().from("reviews").insert({ name: r.v.name, rating: r.v.rating, text: r.v.text, page: r.v.page, status: "published", created_at: t });
+    must(await db().from("reviews").insert({ name: r.v.name, rating: r.v.rating, text: r.v.text, page: r.v.page, status: "published", created_at: t }));
     return json({ ok: true });
   } catch (e) {
     console.error("reviews POST failed", e);

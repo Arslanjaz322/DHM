@@ -47,7 +47,7 @@ describe("project and category covers", () => {
     expect(projectCover({})).toBe("");
   });
 
-  it("uses a category's own cover, else the cover of its first published sub-project", () => {
+  it("uses a category's own cover only; it does not copy a sub-project cover", () => {
     const d = {
       projCats: [
         { id: "developed", name: "Developed", slug: "developed", img: "/media/cat", sum: "Ready communities" },
@@ -61,7 +61,7 @@ describe("project and category covers", () => {
     const [developed, upcoming] = projectCategories(d);
     expect(categoryCover(d, developed!)).toBe("/media/cat");
     expect(developed!.sum).toBe("Ready communities");
-    expect(categoryCover(d, upcoming!)).toBe("/media/live");
+    expect(categoryCover(d, upcoming!)).toBe("");
     expect(upcoming!.img).toBe("");
   });
 });
