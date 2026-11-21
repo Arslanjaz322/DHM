@@ -478,7 +478,7 @@ export async function renderSitemap(request: Request): Promise<Response> {
   if ((d.vids || []).some((v: Json) => v && v.pub && v.url)) add("/videos");
   if ((d.gal || []).some((g: Json) => g && g.pub && g.img)) add("/gallery");
   for (const p of d.pages || []) if (p.pub && p.kind !== "link" && p.slug) add("/" + p.slug);
-  for (const b of d.boxes || []) if (b.title) add("/tools/" + slugify(String(b.title)));
+  for (const b of d.boxes || []) if (b.title && !(b.ext && b.extm !== "embed")) add("/tools/" + slugify(String(b.title)));
   for (const a of d.arts || []) if (a.pub && a.slug) add("/newsflash/" + a.slug, isoDate(a.date));
   for (const v of d.vids || []) if (v.pub && v.slug) add("/videos/" + v.slug, isoDate(v.date));
   for (const p of projectSitemapPaths(d)) add(p);
@@ -530,7 +530,7 @@ export async function renderLlms(request: Request): Promise<Response> {
   out.push(line("Documents", "/doc", "Property checklists and document templates"));
   if ((d.vids || []).some((v: Json) => v && v.pub && v.url)) out.push(line("Videos", "/videos"));
   if ((d.gal || []).some((g: Json) => g && g.pub && g.img)) out.push(line("Gallery", "/gallery"));
-  const tools = (d.boxes || []).filter((b: Json) => b && b.title);
+  const tools = (d.boxes || []).filter((b: Json) => b && b.title && !(b.ext && b.extm !== "embed"));
   if (tools.length) {
     out.push("", "## Calculators and tools", "");
     for (const b of tools.slice(0, 30)) out.push(line(b.title, "/tools/" + slugify(String(b.title)), plain(b.dis).slice(0, 120)));

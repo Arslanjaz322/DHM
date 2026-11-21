@@ -381,8 +381,15 @@ pre.code{margin:0;background:var(--surface);border:1px solid var(--line);border-
   .nv{display:none;flex-direction:column;align-items:stretch;width:100%;margin:0}
   .nv.open{display:flex}
   .dm{position:static;box-shadow:none;margin:2px 0 4px 10px}
-  .hero{aspect-ratio:2/1}
-  .cap{padding:22px 12px 9px}.cap h2{font-size:15px}.cap p{font-size:12px;margin:2px 0 0}.hmeta{display:none}.ar{width:30px;height:30px}
+  .hmeta{display:none}
+  /* hero (phones): the whole 2:1 banner is shown uncropped, caption sits under the picture */
+  .hero{aspect-ratio:auto;container-type:inline-size}
+  .sl{height:auto;display:flex;flex-direction:column}
+  .sl img,.sl video{height:auto;aspect-ratio:2/1;object-fit:contain;background:var(--soft)}
+  .cap{position:static;padding:10px 12px 12px;background:#12392a;pointer-events:none}
+  .cap h2{font-size:16px}.cap p{font-size:12.5px}
+  .ar{top:25cqw;width:34px;height:34px}
+  .dots{top:8px;right:8px}.dot{width:16px}
   .edit2,.cols{grid-template-columns:1fr}
   .adm{grid-template-columns:1fr}
   .as{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}
@@ -435,11 +442,6 @@ pre.code{margin:0;background:var(--surface);border:1px solid var(--line);border-
   .nv .dd{width:100%}
   .nv .dm{margin:0 0 6px 12px;border:0;border-left:2px solid var(--line);border-radius:0;padding:0 0 0 6px;min-width:0;box-shadow:none}
   .nv .dm .nb{min-height:42px;padding:10px 12px;font-size:14px}
-  /* hero: taller picture, readable caption, easier-to-tap arrows */
-  .hero{aspect-ratio:16/10}
-  .cap{padding:34px 12px 12px}.cap h2{font-size:18px}.cap p{font-size:13px}
-  .dots{top:10px;right:10px}.dot{width:16px}
-  .ar{width:36px;height:36px}
   /* tool boxes fill the width in two columns */
   .tools{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .flip,.tb{max-width:none}
@@ -1432,7 +1434,7 @@ function toolDoc(code,big,sub){
   return '<!doctype html><meta charset="utf-8"><style>:root{--bg:'+v('--surface')+';--fg:'+v('--fg')+';--muted:'+v('--muted')+';--line:'+v('--line')+';--acc:'+v('--acc')+';color-scheme:'+(isDark()?'dark':'light')+'}</style>'+(big?PRELUDE.replaceAll('__ADM__',adm)+(code.includes('claude.use(')?SHIM:''):'')+code+(big&&code.includes('id="aForm"')?PATCH_ADMIN:'')+(big?BRIDGE.replaceAll('__SUB__',JSON.stringify(sub||'')).replaceAll('__ADM__',adm):'')+(big&&code.startsWith(BASE)?'<style>body{max-width:640px;margin:0 auto;padding:28px 20px;gap:8px;font-size:17px}label{font-size:14px}input{font-size:20px;padding:10px 12px}.out{font-size:40px;margin-top:20px}small{font-size:14px}</style>':'');
 }
 function fillPageFrames(){$$('iframe.pzf').forEach(f=>{const p=S.pages.find(x=>x.slug===f.dataset.pg);if(p&&p.zip){const u=zurl(p.zip,p.zip.entry);if(f.getAttribute('src')!==u)f.src=u}})}
-function fillFrames(sel){$$(sel).forEach(f=>{const b=S.boxes[+f.dataset.i];if(!b)return;if(b.zip){f.dataset.zip='1';f.removeAttribute('srcdoc');if(f.dataset.adm&&b.zip.admin){admFrame(f,b);return}let u=zurl(b.zip,b.zip.entry);if((f.closest('.tfull')&&S.sub==='admin'&&S.admin)||(f.dataset.adm&&S.admin))u+='?adm=1';if(f.getAttribute('src')!==u)f.src=u}else{delete f.dataset.zip;f.removeAttribute('src');f.srcdoc=toolDoc(b.code,!!f.closest('.tfull')||!!f.dataset.adm,f.dataset.adm?'admin':S.sub)}})}
+function fillFrames(sel){$$(sel).forEach(f=>{const b=S.boxes[+f.dataset.i];if(!b)return;const xh=extHref(b.ext);if(xh){delete f.dataset.zip;f.removeAttribute('srcdoc');f.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox allow-same-origin');if(f.getAttribute('src')!==xh)f.src=xh;return}if(b.zip){f.dataset.zip='1';f.removeAttribute('srcdoc');if(f.dataset.adm&&b.zip.admin){admFrame(f,b);return}let u=zurl(b.zip,b.zip.entry);if((f.closest('.tfull')&&S.sub==='admin'&&S.admin)||(f.dataset.adm&&S.admin))u+='?adm=1';if(f.getAttribute('src')!==u)f.src=u}else{delete f.dataset.zip;f.removeAttribute('src');f.srcdoc=toolDoc(b.code,!!f.closest('.tfull')||!!f.dataset.adm,f.dataset.adm?'admin':S.sub)}})}
 
 /* ---------- SEO generators ---------- */
 const tplTitle=t=>S.seo.tpl.replace('%page%',t).replace('%site%',S.title);
@@ -1547,7 +1549,7 @@ function homeHTML(){
    <span class="hmeta">AUTOPLAY ${(S.delay/1000).toFixed(1)}s &middot; hover to pause</span>
    <button class="ar l" data-act="prev" aria-label="Previous slide">&#8249;</button><button class="ar r" data-act="next" aria-label="Next slide">&#8250;</button>
    <div class="dots">${S.slides.map((_,i)=>`<button class="dot" data-act="dot" data-i="${i}" aria-label="Slide ${i+1}"></button>`).join('')}</div></section>`:`<section class="u4 hero"><p class="sub">No slides yet. Add banner images in Admin &rsaquo; Hero slider.</p></section>`;
-  const tools=S.boxes.map((b,i)=>{const L=!S.inline;return `<div class="tool">${L?`<a class="flip" href="${esc(pathOf('t:'+i))}" target="_blank" rel="noopener" data-act="newtab" data-r="t:${i}" aria-label="Open ${esc(b.title)} in a new tab">`:'<div class="flip">'}<div class="fi"><div class="ff"><h3 data-i="${i}" ${S.inline?'contenteditable="true" spellcheck="false" title="Edit title"':''}>${esc(b.title)}</h3></div><div class="fb" aria-hidden="true"><b>OPEN</b><span>&#8599;</span></div></div>${L?'</a>':'</div>'}</div>`}).join('');
+  const tools=S.boxes.map((b,i)=>{const L=!S.inline,xh=extHref(b.ext),xm=b.extm||'tab';return `<div class="tool">${L?(xh&&xm!=='embed'?`<a class="flip" href="${esc(xh)}" target="${xm==='same'?'_self':'_blank'}" rel="noopener noreferrer" aria-label="Open ${esc(b.title)}">`:`<a class="flip" href="${esc(pathOf('t:'+i))}" target="_blank" rel="noopener" data-act="newtab" data-r="t:${i}" aria-label="Open ${esc(b.title)} in a new tab">`):'<div class="flip">'}<div class="fi"><div class="ff"><h3 data-i="${i}" ${S.inline?'contenteditable="true" spellcheck="false" title="Edit title"':''}>${esc(b.title)}</h3></div><div class="fb" aria-hidden="true"><b>OPEN</b><span>&#8599;</span></div></div>${L?'</a>':'</div>'}</div>`}).join('');
   const latest=pubArts().filter(a=>a.home).slice(0,6),homeVids=pubVids().slice(0,3);
   return `<h1 class="vh">${esc(S.title)} - ${esc(homeDesc())}</h1>`+hero+(String(S.homeIntro||'').trim()?`<section><div class="art home-intro">${rtBody(S.homeIntro)}</div></section>`:'')+`<section><div class="sech"><h2>Property tools</h2></div><div class="tools">${tools}</div></section>
   ${latest.length?`<section><div class="sech"><div><h2>Latest DHA Multan Newsflash</h2><p class="sub">Notices and updates, each with its own article page.</p></div><a class="btn" href="/newsflash" data-act="go" data-r="news">All Newsflash</a></div><div class="nl">${latest.map(cardHTML).join('')}</div></section>`:''}
@@ -1767,8 +1769,8 @@ function footerHTML(){
 }
 function toolHTML(i){
   const b=S.boxes[i];if(!b)return '';
-  const dis=b.dis===undefined?DEFAULT_DIS:b.dis,zAdmin=!!(b.zip&&S.sub==='admin');
-  return `<div class="tfull" role="dialog" aria-label="${esc(b.title)}"><div class="tfbar"><a class="btn" href="/" data-act="go" data-r="home">&#8592; Back</a><h1>${esc(b.title)}</h1><div class="tmore">${S.boxes.map((x,j)=>j===i?'':`<a class="btn sm" href="${esc(pathOf('t:'+j))}" data-act="go" data-r="t:${j}">${esc(x.title)}</a>`).join('')}</div></div>${zAdmin&&!S.admin?'<div class="u11">'+loginHTML()+'</div>':`<iframe data-i="${i}"${zAdmin?' data-adm="1"':''} sandbox="allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox" title="${esc(b.title)}"></iframe>`}${S.sub==='admin'?'<p class="u12 tdis">Site build: forms-fix-1</p>':''}${dis?`<p class="tdis"><b>Disclaimer:</b> ${esc(dis)}</p>`:''}</div>`;
+  const dis=b.dis===undefined?DEFAULT_DIS:b.dis,zAdmin=!!(b.zip&&S.sub==='admin'),xh=extHref(b.ext),sbx=xh?'allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-top-navigation-by-user-activation':'allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox';
+  return `<div class="tfull" role="dialog" aria-label="${esc(b.title)}"><div class="tfbar"><a class="btn" href="/" data-act="go" data-r="home">&#8592; Back</a><h1>${esc(b.title)}</h1>${xh?`<a class="btn sm" href="${esc(xh)}" target="_blank" rel="noopener noreferrer">Open website in new tab &#8599;</a>`:''}<div class="tmore">${S.boxes.map((x,j)=>j===i?'':`<a class="btn sm" href="${esc(pathOf('t:'+j))}" data-act="go" data-r="t:${j}">${esc(x.title)}</a>`).join('')}</div></div>${zAdmin&&!S.admin?'<div class="u11">'+loginHTML()+'</div>':`<iframe data-i="${i}"${zAdmin?' data-adm="1"':''} sandbox="${sbx}" title="${esc(b.title)}"></iframe>`}${S.sub==='admin'?'<p class="u12 tdis">Site build: forms-fix-1</p>':''}${dis?`<p class="tdis"><b>Disclaimer:</b> ${esc(dis)}</p>`:''}</div>`;
 }
 function siteHTML(){
   if(S.route.startsWith('t:')&&!S.boxes[+S.route.slice(2)])S.route='home';
@@ -2085,6 +2087,7 @@ function secTools(){
   <label class="chk"><input type="checkbox" id="inl" ${S.inline?'checked':''}> Edit box headings directly on the home page</label>
   <div class="edit2 pvb"><div class="u25"><div class="f"><label for="bt">Box heading (shown large on the homepage)</label><input id="bt" type="text" data-b="boxes.${i}.title" value="${esc(b.title)}"></div>
   <div class="f"><label for="bd">Disclaimer (shown at the bottom of this tool's page; leave empty to hide)</label><textarea id="bd" data-b="boxes.${i}.dis" class="u26">${esc(b.dis===undefined?DEFAULT_DIS:b.dis)}</textarea></div>
+  <div class="f"><label for="bx">Link to another website (optional)</label><input id="bx" type="url" inputmode="url" placeholder="https://example.com/page" data-b="boxes.${i}.ext" data-rr="1" data-pv="1" value="${esc(b.ext||'')}"><select id="bxm" aria-label="What happens when a visitor clicks this box" data-b="boxes.${i}.extm" data-rr="1" class="u26"><option value="tab" ${(b.extm||'tab')==='tab'?'selected':''}>Click opens the website in a new tab (works with every website)</option><option value="same" ${b.extm==='same'?'selected':''}>Click jumps to the website in the same tab</option><option value="embed" ${b.extm==='embed'?'selected':''}>Show the website inside our page (only works if that site allows embedding)</option></select><span class="note">${extHref(b.ext)?'The box heading above is shown on the home page. While a link is set it is used instead of the code or ZIP below. Clear the link to go back to the tool.':'Type the full web address (https://...). The heading above is shown on the home page and a click takes the visitor to that website.'}</span></div>
   ${b.zip?zipPanel(b):`<div class="f"><label for="bc">HTML, CSS and JS</label><textarea id="bc" data-b="boxes.${i}.code" data-pv="1" spellcheck="false">${esc(b.code)}</textarea></div>`}
   <div id="zipst">${zstHTML()}</div>
   ${updBar()}
